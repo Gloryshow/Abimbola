@@ -2,50 +2,75 @@
 // Uses global 'db' and functions from global scope
 
 /**
+ * Get all announcements for users (visible to both teachers and admins)
+ */
+const getAllAnnouncements = async () => {
+  try {
+    const announcementsSnapshot = await window.db.collection('announcements')
+      .orderBy('createdAt', 'desc')
+      .get();
+
+    return announcementsSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  } catch (error) {
+    throw new Error(`Failed to fetch announcements: ${error.message}`);
+  }
+};
+
+/**
+ * Post announcement by admin (visible to everyone)
+ */
+const postAdminAnnouncement = async (user, announcementData) => {
+  if (!user || user.role !== 'admin') {
+    throw new Error('Access denied: Only admins can post announcements');
+  }
+
+  try {
+    const announcement = {
+      type: 'admin',
+      title: announcementData.title,
+      content: announcementData.content,
+      authorId: user.uid,
+      authorName: user.name || 'Admin',
+      authorRole: 'admin',
+      visibility: 'all',
+      createdAt: window.firebase.firestore.Timestamp.now(),
+      updatedAt: window.firebase.firestore.Timestamp.now(),
+      isPinned: false,
+    };
+
+    const docRef = await window.db.collection('announcements').add(announcement);
+
+    return {
+      success: true,
+      announcementId: docRef.id,
+      message: 'Announcement posted successfully',
+    };
+  } catch (error) {
+    throw new Error(`Failed to post announcement: ${error.message}`);
+  }
+};
+
+/**
  * Get all announcements visible to teacher
  */
 const getAnnouncementsForTeacher = async (user) => {
-  if (!isTeacher(user)) {
+  if (!user || user.role !== 'teacher') {
     throw new Error('Access denied: Only teachers can view announcements');
   }
 
   try {
-    // Get admin announcements
-    const adminAnnouncementsSnapshot = await window.db.collection('announcements')
-      .where('type', '==', 'admin')
+    const announcementsSnapshot = await window.db.collection('announcements')
       .where('visibility', '==', 'all')
       .orderBy('createdAt', 'desc')
-      .limit(50)
       .get();
 
-    // Get announcements for assigned classes
-    const classAnnouncementsSnapshot = await window.db.collection('announcements')
-      .where('type', '==', 'class')
-      .where('classIds', 'array-contains-any', user.assignedClasses || [])
-      .orderBy('createdAt', 'desc')
-      .limit(50)
-      .get();
-
-    // Get announcements by same teacher
-    const teacherAnnouncementsSnapshot = await window.db.collection('announcements')
-      .where('type', '==', 'teacher')
-      .where('authorId', '==', user.uid)
-      .orderBy('createdAt', 'desc')
-      .limit(50)
-      .get();
-
-    const allAnnouncements = [
-      ...adminAnnouncementsSnapshot.docs,
-      ...classAnnouncementsSnapshot.docs,
-      ...teacherAnnouncementsSnapshot.docs,
-    ]
-      .map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }))
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-    return allAnnouncements;
+    return announcementsSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
   } catch (error) {
     throw new Error(`Failed to fetch announcements: ${error.message}`);
   }
@@ -202,6 +227,8 @@ const getUnreadAnnouncementCount = async (user) => {
   }
 };
 // Expose functions globally
+window.getAllAnnouncements = getAllAnnouncements;
+window.postAdminAnnouncement = postAdminAnnouncement;
 window.getAnnouncementsForTeacher = getAnnouncementsForTeacher;
 window.postTeacherAnnouncement = postTeacherAnnouncement;
 window.updateAnnouncement = updateAnnouncement;

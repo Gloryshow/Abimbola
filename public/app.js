@@ -258,6 +258,9 @@ async function handleRegisterStudent(event) {
     }
 }
 
+// Store all students for search functionality
+let allStudents = [];
+
 async function loadStudentsList() {
     try {
         let students = [];
@@ -276,51 +279,85 @@ async function loadStudentsList() {
             students = await getStudents();
         }
 
-        const studentsList = document.getElementById('studentsList');
-
-        if (students.length === 0) {
-            studentsList.innerHTML = '<p class="text-muted">No students</p>';
-        } else {
-            // Count header with role-based info
-            const countInfo = currentUser && currentUser.role === 'teacher' 
-                ? `${students.length} student${students.length !== 1 ? 's' : ''} in ${currentUser.assignedClass}`
-                : `${students.length} total student${students.length !== 1 ? 's' : ''} registered`;
-            
-            let studentsHTML = `<div class="mb-3"><p class="text-muted"><strong>${countInfo}</strong></p></div><div class="table-responsive"><table class="table table-hover"><thead><tr><th>Name</th><th>Email</th><th>Class</th><th>Reg. Number</th>`;
-            
-            // Only show Actions column if user is admin
-            if (currentUser && currentUser.role === 'admin') {
-                studentsHTML += '<th>Actions</th>';
-            }
-            
-            studentsHTML += '</tr></thead><tbody>';
-            
-            students.forEach(student => {
-                studentsHTML += `
-                    <tr>
-                        <td><strong>${student.name}</strong></td>
-                        <td>${student.email}</td>
-                        <td><span class="badge bg-primary">${student.class}</span></td>
-                        <td>${student.registrationNumber || '-'}</td>`;
-                
-                // Only show action buttons if user is admin
-                if (currentUser && currentUser.role === 'admin') {
-                    studentsHTML += `
-                        <td>
-                            <button onclick="editStudent('${student.id}')" class="btn btn-sm btn-info">Edit</button>
-                            <button onclick="deleteStudentRecord('${student.id}', '${student.name}')" class="btn btn-sm btn-danger">Delete</button>
-                        </td>`;
-                }
-                
-                studentsHTML += '</tr>';
-            });
-            
-            studentsHTML += '</tbody></table></div>';
-            studentsList.innerHTML = studentsHTML;
+        // Store all students for search
+        allStudents = students;
+        
+        // Reset search input
+        const searchInput = document.getElementById('studentSearch');
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.onkeyup = filterStudents;
         }
+
+        renderStudentsList(students, displayTitle);
     } catch (error) {
         console.error('Error loading students:', error);
         document.getElementById('studentsList').innerHTML = `<p class="text-danger">Error loading students</p>`;
+    }
+}
+
+function filterStudents() {
+    const searchTerm = document.getElementById('studentSearch').value.toLowerCase();
+    
+    if (!searchTerm) {
+        // If search is empty, show all students
+        renderStudentsList(allStudents, 'Registered Students');
+        return;
+    }
+    
+    const filteredStudents = allStudents.filter(student => {
+        const name = (student.name || '').toLowerCase();
+        const className = (student.class || '').toLowerCase();
+        const regNum = (student.registrationNumber || '').toLowerCase();
+        
+        return name.includes(searchTerm) || className.includes(searchTerm) || regNum.includes(searchTerm);
+    });
+    
+    renderStudentsList(filteredStudents, 'Search Results');
+}
+
+function renderStudentsList(students, displayTitle) {
+    const studentsList = document.getElementById('studentsList');
+
+    if (students.length === 0) {
+        studentsList.innerHTML = '<p class="text-muted">No students found</p>';
+    } else {
+        // Count header with role-based info
+        const countInfo = currentUser && currentUser.role === 'teacher' 
+            ? `${students.length} student${students.length !== 1 ? 's' : ''} in ${currentUser.assignedClass}`
+            : `${students.length} student${students.length !== 1 ? 's' : ''} found`;
+        
+        let studentsHTML = `<div class="mb-3"><p class="text-muted"><strong>${countInfo}</strong></p></div><div class="table-responsive"><table class="table table-hover"><thead><tr><th>Name</th><th>Email</th><th>Class</th><th>Reg. Number</th>`;
+        
+        // Only show Actions column if user is admin
+        if (currentUser && currentUser.role === 'admin') {
+            studentsHTML += '<th>Actions</th>';
+        }
+        
+        studentsHTML += '</tr></thead><tbody>';
+        
+        students.forEach(student => {
+            studentsHTML += `
+                <tr>
+                    <td><strong>${student.name}</strong></td>
+                    <td>${student.email}</td>
+                    <td><span class="badge bg-primary">${student.class}</span></td>
+                    <td>${student.registrationNumber || '-'}</td>`;
+            
+            // Only show action buttons if user is admin
+            if (currentUser && currentUser.role === 'admin') {
+                studentsHTML += `
+                    <td>
+                        <button onclick="editStudent('${student.id}')" class="btn btn-sm btn-info">Edit</button>
+                        <button onclick="deleteStudentRecord('${student.id}', '${student.name}')" class="btn btn-sm btn-danger">Delete</button>
+                    </td>`;
+            }
+            
+            studentsHTML += '</tr>';
+        });
+        
+        studentsHTML += '</tbody></table></div>';
+        studentsList.innerHTML = studentsHTML;
     }
 }
 
@@ -350,8 +387,74 @@ function editStudent(studentId) {
         return;
     }
     
-    alert('Student editing feature coming soon!');
-    // This can be expanded to include edit modal
+    // Find the student in allStudents
+    const student = allStudents.find(s => s.id === studentId);
+    if (!student) {
+        alert('Student not found');
+        return;
+    }
+    
+    // Populate the edit form
+    document.getElementById('editStudentId').value = student.id;
+    document.getElementById('editStudentName').textContent = student.name;
+    document.getElementById('editStudentFormName').value = student.name;
+    document.getElementById('editStudentFormEmail').value = student.email;
+    document.getElementById('editStudentFormClass').value = student.class;
+    document.getElementById('editStudentFormDOB').value = student.dateOfBirth || '';
+    document.getElementById('editStudentFormRegNum').value = student.registrationNumber || '';
+    document.getElementById('editStudentFormParentName').value = student.parentName || '';
+    document.getElementById('editStudentFormParentPhone').value = student.parentPhone || '';
+    document.getElementById('editStudentFormPhone').value = student.phone || '';
+    document.getElementById('editStudentFormAddress').value = student.address || '';
+    document.getElementById('editStudentMessage').innerHTML = '';
+    
+    // Show the modal
+    const modal = new window.bootstrap.Modal(document.getElementById('editStudentModal'));
+    modal.show();
+}
+
+async function handleSaveStudentChanges() {
+    try {
+        const studentId = document.getElementById('editStudentId').value;
+        const name = document.getElementById('editStudentFormName').value.trim();
+        const email = document.getElementById('editStudentFormEmail').value.trim();
+        const className = document.getElementById('editStudentFormClass').value;
+        const dob = document.getElementById('editStudentFormDOB').value;
+        const parentName = document.getElementById('editStudentFormParentName').value.trim();
+        const parentPhone = document.getElementById('editStudentFormParentPhone').value.trim();
+        const phone = document.getElementById('editStudentFormPhone').value.trim();
+        const address = document.getElementById('editStudentFormAddress').value.trim();
+        
+        if (!name || !email || !className) {
+            document.getElementById('editStudentMessage').innerHTML = '<div class="alert alert-danger">Name, email, and class are required</div>';
+            return;
+        }
+        
+        document.getElementById('editStudentMessage').innerHTML = '<div class="alert alert-info">Updating student...</div>';
+        
+        await updateStudent(studentId, {
+            name,
+            email,
+            class: className,
+            dateOfBirth: dob,
+            parentName,
+            parentPhone,
+            phone,
+            address
+        });
+        
+        document.getElementById('editStudentMessage').innerHTML = '<div class="alert alert-success">Student updated successfully!</div>';
+        
+        // Close modal and reload students
+        setTimeout(() => {
+            const modal = window.bootstrap.Modal.getInstance(document.getElementById('editStudentModal'));
+            if (modal) modal.hide();
+            loadStudentsList();
+        }, 1500);
+    } catch (error) {
+        document.getElementById('editStudentMessage').innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+        console.error('Update error:', error);
+    }
 }
 
 function showMessage(elementId, message, type) {
@@ -448,11 +551,19 @@ async function loadStatistics() {
     try {
         const overview = await getTeacherDashboardOverview(currentUser);
         
+        // Fetch unread announcement count from service
+        let announcementsCount = 0;
+        try {
+            announcementsCount = await window.getUnreadAnnouncementCount(currentUser);
+        } catch (error) {
+            console.error('Error fetching announcement count:', error);
+            announcementsCount = 0;
+        }
+        
         // Update all stat elements (navbar, mobile, desktop)
         const classesCount = overview.totalClasses || 0;
         const studentsCount = overview.totalStudents || 0;
         const subjectsCount = overview.totalSubjects || 0;
-        const announcementsCount = overview.announcements?.length || 0;
         
         // Update navbar stats
         const statsClassesNav = document.getElementById('statsClassesNav');
@@ -1232,6 +1343,132 @@ function togglePasswordVisibility(inputId) {
     }
 }
 
+// ============================================
+// ANNOUNCEMENTS
+// ============================================
+
+async function postAnnouncement() {
+    try {
+        const titleInput = document.getElementById('announcementTitle');
+        const messageInput = document.getElementById('announcementMessage');
+        const feedbackDiv = document.getElementById('announcementFormMessage');
+        
+        const title = titleInput.value.trim();
+        const content = messageInput.value.trim();
+        
+        // Validation
+        if (!title) {
+            feedbackDiv.innerHTML = '<div class="alert alert-warning">Please enter an announcement title</div>';
+            return;
+        }
+        
+        if (!content) {
+            feedbackDiv.innerHTML = '<div class="alert alert-warning">Please enter announcement content</div>';
+            return;
+        }
+        
+        // Check if user is admin
+        if (currentUser.role !== 'admin') {
+            feedbackDiv.innerHTML = '<div class="alert alert-danger">Only admins can post announcements</div>';
+            return;
+        }
+        
+        // Prepare announcement data
+        const announcementData = {
+            title,
+            content,
+            type: 'admin'
+        };
+        
+        // Call service function
+        const result = await window.postAdminAnnouncement(currentUser, announcementData);
+        
+        if (result.success) {
+            feedbackDiv.innerHTML = '<div class="alert alert-success">✓ Announcement posted successfully!</div>';
+            titleInput.value = '';
+            messageInput.value = '';
+            
+            // Reload announcements after a short delay
+            setTimeout(() => {
+                loadAnnouncementsTab();
+            }, 500);
+        }
+    } catch (error) {
+        const feedbackDiv = document.getElementById('announcementFormMessage');
+        feedbackDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        console.error('Error posting announcement:', error);
+    }
+}
+
+async function loadAnnouncementsTab() {
+    try {
+        const announcementsContent = document.getElementById('announcementsContent');
+        announcementsContent.innerHTML = '<p class="text-muted">Loading announcements...</p>';
+        
+        // Show/hide admin form based on role
+        const adminForm = document.getElementById('adminAnnouncementForm');
+        if (currentUser && currentUser.role === 'admin') {
+            adminForm.style.display = 'block';
+        } else {
+            adminForm.style.display = 'none';
+        }
+        
+        // Fetch announcements
+        const announcements = await window.getAllAnnouncements();
+        
+        if (!announcements || announcements.length === 0) {
+            announcementsContent.innerHTML = '<p class="text-muted text-center py-4">No announcements yet</p>';
+            return;
+        }
+        
+        // Mark all announcements as read
+        for (const announcement of announcements) {
+            try {
+                await window.markAnnouncementAsRead(currentUser, announcement.id);
+            } catch (error) {
+                console.error('Error marking announcement as read:', error);
+            }
+        }
+        
+        // Render announcements
+        let html = '';
+        announcements.forEach(announcement => {
+            const date = announcement.createdAt 
+                ? new Date(announcement.createdAt.seconds ? announcement.createdAt.seconds * 1000 : announcement.createdAt)
+                : new Date();
+            
+            const formattedDate = date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            html += `
+                <div class="card mb-3 border-left border-primary border-4">
+                    <div class="card-body">
+                        <h5 class="card-title">${announcement.title || 'Untitled'}</h5>
+                        <p class="card-text">${announcement.content || ''}</p>
+                        <small class="text-muted">
+                            Posted by: ${announcement.authorName || 'Admin'} • ${formattedDate}
+                        </small>
+                    </div>
+                </div>
+            `;
+        });
+        
+        announcementsContent.innerHTML = html;
+        
+        // Reload statistics to update announcement count
+        await loadStatistics();
+    } catch (error) {
+        const announcementsContent = document.getElementById('announcementsContent');
+        announcementsContent.innerHTML = `<p class="text-danger">Error loading announcements: ${error.message}</p>`;
+        console.error('Error loading announcements:', error);
+    }
+}
+
 // Expose functions globally
 window.handleLogin = handleLogin;
 window.handleSignup = handleSignup;
@@ -1249,3 +1486,5 @@ window.deleteStudentRecord = deleteStudentRecord;
 window.editStudent = editStudent;
 window.showTeachersTab = showTeachersTab;
 window.showStudentsTab = showStudentsTab;
+window.postAnnouncement = postAnnouncement;
+window.loadAnnouncementsTab = loadAnnouncementsTab;
