@@ -10,6 +10,7 @@ let selectedClasses = new Set();
 let attendanceData = {};
 let resultsData = {};
 let currentPage = 'loginPage';
+let currentEditingAnnouncementId = null;
 
 // ============================================
 // INITIALIZATION & AUTH STATE MANAGEMENT
@@ -550,10 +551,10 @@ async function loadStatistics() {
     try {
         const overview = await getTeacherDashboardOverview(currentUser);
         
-        // Fetch unread announcement count from service
+        // Fetch announcement count from last 24 hours
         let announcementsCount = 0;
         try {
-            announcementsCount = await window.getUnreadAnnouncementCount(currentUser);
+            announcementsCount = await window.getRecentAnnouncementCount();
         } catch (error) {
             console.error('Error fetching announcement count:', error);
             announcementsCount = 0;
@@ -1420,15 +1421,6 @@ async function loadAnnouncementsTab() {
             return;
         }
         
-        // Mark all announcements as read
-        for (const announcement of announcements) {
-            try {
-                await window.markAnnouncementAsRead(currentUser, announcement.id);
-            } catch (error) {
-                console.error('Error marking announcement as read:', error);
-            }
-        }
-        
         // Render announcements
         let html = '';
         announcements.forEach(announcement => {
@@ -1444,6 +1436,9 @@ async function loadAnnouncementsTab() {
                 minute: '2-digit'
             });
             
+            // Check if current user is the author (for edit/delete buttons)
+            const isAuthor = currentUser && currentUser.uid === announcement.authorId;
+            
             html += `
                 <div class="card mb-3 border-left border-primary border-4">
                     <div class="card-body">
@@ -1451,20 +1446,107 @@ async function loadAnnouncementsTab() {
                         <p class="card-text">${announcement.content || ''}</p>
                         <small class="text-muted">
                             Posted by: ${announcement.authorName || 'Admin'} • ${formattedDate}
-                        </small>
+                        </small>`;
+            
+            // Add edit/delete buttons if user is the author
+            if (isAuthor) {
+                html += `
+                        <div class="mt-2">
+                            <button class="btn btn-sm btn-info" onclick="openEditAnnouncementModal('${announcement.id}', \`${announcement.title.replace(/`/g, '\\`')}\`, \`${announcement.content.replace(/`/g, '\\`')}\`)">Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteAnnouncementConfirm('${announcement.id}', '${announcement.title}')">Delete</button>
+                        </div>`;
+            }
+            
+            html += `
                     </div>
                 </div>
             `;
         });
         
         announcementsContent.innerHTML = html;
-        
-        // Reload statistics to update announcement count
-        await loadStatistics();
     } catch (error) {
         const announcementsContent = document.getElementById('announcementsContent');
         announcementsContent.innerHTML = `<p class="text-danger">Error loading announcements: ${error.message}</p>`;
         console.error('Error loading announcements:', error);
+    }
+}
+
+function openEditAnnouncementModal(announcementId, title, content) {
+    currentEditingAnnouncementId = announcementId;
+    document.getElementById('editAnnouncementTitle').value = title;
+    document.getElementById('editAnnouncementContent').value = content;
+    document.getElementById('editAnnouncementMessage').innerHTML = '';
+    
+    const modal = new window.bootstrap.Modal(document.getElementById('editAnnouncementModal'));
+    modal.show();
+}
+
+async function handleSaveAnnouncementChanges() {
+    try {
+        const title = document.getElementById('editAnnouncementTitle').value.trim();
+        const content = document.getElementById('editAnnouncementContent').value.trim();
+        const messageDiv = document.getElementById('editAnnouncementMessage');
+        
+        if (!title) {
+            messageDiv.innerHTML = '<div class="alert alert-warning">Please enter a title</div>';
+            return;
+        }
+        
+        if (!content) {
+            messageDiv.innerHTML = '<div class="alert alert-warning">Please enter content</div>';
+            return;
+        }
+        
+        messageDiv.innerHTML = '<div class="alert alert-info">Updating announcement...</div>';
+        
+        await window.updateAnnouncement(currentUser, currentEditingAnnouncementId, {
+            title,
+            content
+        });
+        
+        messageDiv.innerHTML = '<div class="alert alert-success">Announcement updated successfully!</div>';
+        
+        setTimeout(() => {
+            const modal = window.bootstrap.Modal.getInstance(document.getElementById('editAnnouncementModal'));
+            if (modal) modal.hide();
+            loadAnnouncementsTab();
+        }, 1500);
+    } catch (error) {
+        document.getElementById('editAnnouncementMessage').innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        console.error('Error updating announcement:', error);
+    }
+}
+
+function deleteAnnouncementConfirm(announcementId, title) {
+    if (confirm(`Are you sure you want to delete "${title}"?`)) {
+        handleDeleteAnnouncement(announcementId);
+    }
+}
+
+async function handleDeleteAnnouncement(announcementId = null) {
+    try {
+        const id = announcementId || currentEditingAnnouncementId;
+        if (!id) {
+            alert('No announcement selected');
+            return;
+        }
+        
+        const messageDiv = document.getElementById('editAnnouncementMessage');
+        messageDiv.innerHTML = '<div class="alert alert-info">Deleting announcement...</div>';
+        
+        await window.deleteAnnouncement(currentUser, id);
+        
+        messageDiv.innerHTML = '<div class="alert alert-success">Announcement deleted successfully!</div>';
+        
+        setTimeout(() => {
+            const modal = window.bootstrap.Modal.getInstance(document.getElementById('editAnnouncementModal'));
+            if (modal) modal.hide();
+            loadAnnouncementsTab();
+        }, 1500);
+    } catch (error) {
+        const messageDiv = document.getElementById('editAnnouncementMessage');
+        messageDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        console.error('Error deleting announcement:', error);
     }
 }
 
@@ -1487,3 +1569,7 @@ window.showTeachersTab = showTeachersTab;
 window.showStudentsTab = showStudentsTab;
 window.postAnnouncement = postAnnouncement;
 window.loadAnnouncementsTab = loadAnnouncementsTab;
+window.openEditAnnouncementModal = openEditAnnouncementModal;
+window.handleSaveAnnouncementChanges = handleSaveAnnouncementChanges;
+window.handleDeleteAnnouncement = handleDeleteAnnouncement;
+window.deleteAnnouncementConfirm = deleteAnnouncementConfirm;

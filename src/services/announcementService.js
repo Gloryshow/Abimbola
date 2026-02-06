@@ -226,6 +226,26 @@ const getUnreadAnnouncementCount = async (user) => {
     throw new Error(`Failed to get unread count: ${error.message}`);
   }
 };
+
+/**
+ * Get count of announcements from last 24 hours
+ */
+const getRecentAnnouncementCount = async () => {
+  try {
+    const now = new Date();
+    const twentyFourHoursAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+    const timestamp = window.firebase.firestore.Timestamp.fromDate(twentyFourHoursAgo);
+
+    const recentSnapshot = await window.db.collection('announcements')
+      .where('createdAt', '>=', timestamp)
+      .get();
+
+    return recentSnapshot.docs.length;
+  } catch (error) {
+    throw new Error(`Failed to get recent announcement count: ${error.message}`);
+  }
+};
+
 // Expose functions globally
 window.getAllAnnouncements = getAllAnnouncements;
 window.postAdminAnnouncement = postAdminAnnouncement;
@@ -235,3 +255,4 @@ window.updateAnnouncement = updateAnnouncement;
 window.deleteAnnouncement = deleteAnnouncement;
 window.markAnnouncementAsRead = markAnnouncementAsRead;
 window.getUnreadAnnouncementCount = getUnreadAnnouncementCount;
+window.getRecentAnnouncementCount = getRecentAnnouncementCount;
