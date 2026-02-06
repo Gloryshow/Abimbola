@@ -1,0 +1,96 @@
+// Firebase Security Rules - firestore.rules
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is admin
+    function isAdmin(uid) {
+      return get(/databases/$(database)/documents/teachers/$(uid)).data.role == 'admin';
+    }
+    
+    // ==================== TEACHERS COLLECTION ====================
+    match /teachers/{uid} {
+      // Allow users to read their own teacher document
+      allow read: if request.auth.uid == uid;
+      // Allow admins to read all teachers
+      allow read: if isAdmin(request.auth.uid);
+      // Allow creation during signup - user can only create their own document
+      allow create: if request.auth.uid == uid && request.auth.uid == request.resource.data.uid;
+      // Allow teachers to update their own profile
+      allow update: if request.auth.uid == uid;
+      // Allow admins to update (for approval)
+      allow update: if isAdmin(request.auth.uid);
+      // Allow admins to delete
+      allow delete: if isAdmin(request.auth.uid);
+    }
+    
+    // ==================== ADMINS COLLECTION ====================
+    match /admins/{document=**} {
+      allow read, write: if request.auth.uid == document;
+      allow read, write: if false; // Admins created manually
+    }
+    
+    // ==================== CLASSES COLLECTION ====================
+    match /classes/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin(request.auth.uid);
+    }
+    
+    // ==================== STUDENTS COLLECTION ====================
+    match /students/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin(request.auth.uid);
+    }
+    
+    // ==================== ATTENDANCE COLLECTION ====================
+    match /attendance/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+      allow delete: if false;
+    }
+    
+    // ==================== RESULTS COLLECTION ====================
+    match /results/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+      allow delete: if false;
+    }
+    
+    // ==================== ANNOUNCEMENTS COLLECTION ====================
+    match /announcements/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+      allow delete: if request.auth.uid == resource.data.authorId;
+    }
+    
+    // ==================== SUBJECTS COLLECTION ====================
+    match /subjects/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    
+    // ==================== CLASS SUBJECTS COLLECTION ====================
+    match /classSubjects/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    
+    // ==================== TIMETABLES COLLECTION ====================
+    match /timetables/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+    
+    // ==================== ANNOUNCEMENT READS COLLECTION ====================
+    match /announcementReads/{document=**} {
+      allow read, write: if request.auth.uid == resource.data.userId;
+      allow create: if request.auth.uid == request.resource.data.userId;
+    }
+    
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
