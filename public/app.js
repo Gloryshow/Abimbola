@@ -372,10 +372,13 @@ async function loadDashboard() {
         
         // Show admin panel button only for admins
         const adminBtn = document.getElementById('adminPanelBtn');
+        const adminBtnMobile = document.getElementById('adminPanelBtnMobile');
         if (currentUser && currentUser.role === 'admin') {
             adminBtn.style.display = 'block';
+            if (adminBtnMobile) adminBtnMobile.style.display = 'block';
         } else {
             adminBtn.style.display = 'none';
+            if (adminBtnMobile) adminBtnMobile.style.display = 'none';
         }
         
         // Load statistics
