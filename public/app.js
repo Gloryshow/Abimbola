@@ -448,10 +448,44 @@ async function loadStatistics() {
     try {
         const overview = await getTeacherDashboardOverview(currentUser);
         
-        document.getElementById('statsClasses').textContent = overview.totalClasses || 0;
-        document.getElementById('statsStudents').textContent = overview.totalStudents || 0;
-        document.getElementById('statsSubjects').textContent = overview.totalSubjects || 0;
-        document.getElementById('statsAnnouncements').textContent = overview.announcements?.length || 0;
+        // Update all stat elements (navbar, mobile, desktop)
+        const classesCount = overview.totalClasses || 0;
+        const studentsCount = overview.totalStudents || 0;
+        const subjectsCount = overview.totalSubjects || 0;
+        const announcementsCount = overview.announcements?.length || 0;
+        
+        // Update navbar stats
+        const statsClassesNav = document.getElementById('statsClassesNav');
+        const statsStudentsNav = document.getElementById('statsStudentsNav');
+        const statsSubjectsNav = document.getElementById('statsSubjectsNav');
+        const statsAnnouncementsNav = document.getElementById('statsAnnouncementsNav');
+        
+        if (statsClassesNav) statsClassesNav.textContent = classesCount;
+        if (statsStudentsNav) statsStudentsNav.textContent = studentsCount;
+        if (statsSubjectsNav) statsSubjectsNav.textContent = subjectsCount;
+        if (statsAnnouncementsNav) statsAnnouncementsNav.textContent = announcementsCount;
+        
+        // Update mobile stats
+        const statsClassesMobile = document.getElementById('statsClassesMobile');
+        const statsStudentsMobile = document.getElementById('statsStudentsMobile');
+        const statsSubjectsMobile = document.getElementById('statsSubjectsMobile');
+        const statsAnnouncementsMobile = document.getElementById('statsAnnouncementsMobile');
+        
+        if (statsClassesMobile) statsClassesMobile.textContent = classesCount;
+        if (statsStudentsMobile) statsStudentsMobile.textContent = studentsCount;
+        if (statsSubjectsMobile) statsSubjectsMobile.textContent = subjectsCount;
+        if (statsAnnouncementsMobile) statsAnnouncementsMobile.textContent = announcementsCount;
+        
+        // Update desktop stats
+        const statsClasses = document.getElementById('statsClasses');
+        const statsStudents = document.getElementById('statsStudents');
+        const statsSubjects = document.getElementById('statsSubjects');
+        const statsAnnouncements = document.getElementById('statsAnnouncements');
+        
+        if (statsClasses) statsClasses.textContent = classesCount;
+        if (statsStudents) statsStudents.textContent = studentsCount;
+        if (statsSubjects) statsSubjects.textContent = subjectsCount;
+        if (statsAnnouncements) statsAnnouncements.textContent = announcementsCount;
     } catch (error) {
         console.error('Statistics load error:', error);
     }
