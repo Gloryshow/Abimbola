@@ -11,6 +11,7 @@ let attendanceData = {};
 let resultsData = {};
 let currentPage = 'loginPage';
 let currentEditingAnnouncementId = null;
+let attendanceChart = null; // Store chart instance
 
 // ============================================
 // INITIALIZATION & AUTH STATE MANAGEMENT
@@ -729,14 +730,37 @@ async function loadClassesTab() {
 
 async function loadAttendanceTab() {
     try {
-        const classes = await getTeacherClasses(currentUser);
         const classSelect = document.getElementById('attendanceClass');
+        const statsClassSelect = document.getElementById('statsAttendanceClass');
+        const statsDateInput = document.getElementById('statsAttendanceDate');
         
         classSelect.innerHTML = '<option value="">-- Select Class --</option>';
+        statsClassSelect.innerHTML = '<option value="">-- Select Class --</option>';
+        
+        // Set today's date as default for stats
+        const today = new Date().toISOString().split('T')[0];
+        statsDateInput.value = today;
+        
+        let classes = [];
+        
+        // Admins can see all classes, teachers see only assigned classes
+        if (currentUser && currentUser.role === 'admin') {
+            classes = await window.getAllClasses(currentUser);
+        } else {
+            classes = await getTeacherClasses(currentUser);
+        }
+        
         if (classes && classes.length > 0) {
-            classSelect.innerHTML += classes.map(cls => 
+            const options = classes.map(cls => 
                 `<option value="${cls.id}">${cls.name || cls.id}</option>`
             ).join('');
+            classSelect.innerHTML += options;
+            statsClassSelect.innerHTML += options;
+        }
+        
+        // For admins, show overall statistics by default
+        if (currentUser && currentUser.role === 'admin') {
+            await loadOverallAttendanceChart(today);
         }
     } catch (error) {
         console.error('Attendance tab error:', error);
@@ -748,41 +772,96 @@ async function loadAttendanceStudents() {
     if (!classId) return;
     
     try {
-        const students = await getClassStudents(currentUser, classId);
+        let students = [];
+        
+        // Admins can load students from any class, teachers from assigned classes
+        if (currentUser && currentUser.role === 'admin') {
+            students = await window.getAllStudentsInClass(currentUser, classId);
+        } else {
+            students = await getClassStudents(currentUser, classId);
+        }
+        
         const content = document.getElementById('attendanceStudentsContent');
         
         if (students && students.length > 0) {
             attendanceData = {};
+            
+            // Load today's attendance if it exists
+            let todayAttendance = null;
+            try {
+                todayAttendance = await window.getTodayAttendance(currentUser, classId);
+            } catch (error) {
+                console.error('Error loading today attendance:', error);
+            }
+            
+            // Create a map of already marked attendance
+            const attendanceMap = {};
+            if (todayAttendance && todayAttendance.students) {
+                todayAttendance.students.forEach(record => {
+                    attendanceMap[record.studentId] = record.status;
+                });
+            }
+            
             content.innerHTML = `
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Student</th>
-                            <th>Present</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${students.map((student) => {
-                            attendanceData[student.id] = false;
-                            return `
-                                <tr>
-                                    <td>${student.name || 'N/A'}</td>
-                                    <td>
-                                        <input type="checkbox" id="attend_${student.id}" 
-                                               onchange="attendanceData['${student.id}'] = this.checked">
-                                    </td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Reg. Number</th>
+                                <th style="text-align: center;">Present</th>
+                                <th style="text-align: center;">Absent</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${students.map((student) => {
+                                const previousStatus = attendanceMap[student.id];
+                                attendanceData[student.id] = { status: previousStatus || '', name: student.name };
+                                const isPresentChecked = previousStatus === 'present' ? 'checked' : '';
+                                const isAbsentChecked = previousStatus === 'absent' ? 'checked' : '';
+                                
+                                return `
+                                    <tr>
+                                        <td><strong>${student.name || 'N/A'}</strong></td>
+                                        <td><small>${student.registrationNumber || '-'}</small></td>
+                                        <td style="text-align: center;">
+                                            <input type="checkbox" class="form-check-input" id="present_${student.id}" 
+                                                   ${isPresentChecked}
+                                                   onchange="updateAttendanceStatus('${student.id}', 'present')">
+                                        </td>
+                                        <td style="text-align: center;">
+                                            <input type="checkbox" class="form-check-input" id="absent_${student.id}" 
+                                                   ${isAbsentChecked}
+                                                   onchange="updateAttendanceStatus('${student.id}', 'absent')">
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
             `;
         } else {
             content.innerHTML = '<p class="text-muted">No students in this class</p>';
         }
     } catch (error) {
         console.error('Load attendance students error:', error);
-        document.getElementById('attendanceStudentsContent').innerHTML = '<p class="text-danger">Error loading students</p>';
+        document.getElementById('attendanceStudentsContent').innerHTML = `<p class="text-danger">Error: ${error.message}</p>`;
+    }
+}
+
+function updateAttendanceStatus(studentId, status) {
+    const presentCheckbox = document.getElementById(`present_${studentId}`);
+    const absentCheckbox = document.getElementById(`absent_${studentId}`);
+    
+    if (status === 'present') {
+        presentCheckbox.checked = true;
+        absentCheckbox.checked = false;
+        attendanceData[studentId].status = 'present';
+    } else if (status === 'absent') {
+        presentCheckbox.checked = false;
+        absentCheckbox.checked = true;
+        attendanceData[studentId].status = 'absent';
     }
 }
 
@@ -796,12 +875,29 @@ async function submitAttendance() {
     }
     
     try {
-        const presentStudents = Object.keys(attendanceData).filter(id => attendanceData[id]);
-        await takeAttendance(currentUser, classId, date, presentStudents);
+        // Build students array with status
+        const students = Object.keys(attendanceData).map(studentId => ({
+            studentId,
+            studentName: attendanceData[studentId].name,
+            status: attendanceData[studentId].status || 'present'
+        }));
+        
+        if (students.length === 0) {
+            alert('Please select at least one student');
+            return;
+        }
+        
+        await window.takeAttendance(currentUser, classId, {
+            students,
+            date
+        });
+        
         alert('Attendance submitted successfully');
         loadAttendanceStudents();
+        document.getElementById('attendanceDate').value = '';
     } catch (error) {
         alert('Error submitting attendance: ' + error.message);
+        console.error('Attendance error:', error);
     }
 }
 
@@ -1551,6 +1647,205 @@ async function handleDeleteAnnouncement(announcementId = null) {
     }
 }
 
+// ============================================
+// ATTENDANCE STATISTICS & CHARTS
+// ============================================
+
+async function loadOverallAttendanceChart(date) {
+    try {
+        // Only admins can see overall statistics
+        if (!currentUser || currentUser.role !== 'admin') {
+            document.getElementById('attendanceStatsText').innerHTML = '<p class="text-muted">Only admins can view overall statistics</p>';
+            return;
+        }
+        
+        const classSelect = document.getElementById('statsAttendanceClass');
+        
+        // Get all classes
+        let classes = [];
+        try {
+            classes = await window.getAllClasses(currentUser);
+        } catch (error) {
+            console.error('Error fetching classes:', error);
+        }
+        
+        if (!classes || classes.length === 0) {
+            document.getElementById('attendanceStatsText').innerHTML = '<p class="text-muted">No classes found</p>';
+            return;
+        }
+        
+        // Fetch attendance stats for all classes
+        let totalPresent = 0;
+        let totalAbsent = 0;
+        
+        for (const cls of classes) {
+            try {
+                const stats = await window.getAttendanceStats(currentUser, cls.id, date);
+                totalPresent += stats.present || 0;
+                totalAbsent += stats.absent || 0;
+            } catch (error) {
+                console.error(`Error fetching stats for class ${cls.id}:`, error);
+            }
+        }
+        
+        const total = totalPresent + totalAbsent;
+        const statsText = document.getElementById('attendanceStatsText');
+        
+        if (total === 0) {
+            statsText.innerHTML = '<p class="text-muted">No attendance records for this date</p>';
+            return;
+        }
+        
+        // Calculate percentages
+        const presentPercent = ((totalPresent / total) * 100).toFixed(1);
+        const absentPercent = ((totalAbsent / total) * 100).toFixed(1);
+        
+        statsText.innerHTML = `
+            <div class="row text-center">
+                <div class="col-md-6">
+                    <h3 class="text-success">${totalPresent}</h3>
+                    <p class="text-muted">Present (${presentPercent}%)</p>
+                </div>
+                <div class="col-md-6">
+                    <h3 class="text-danger">${totalAbsent}</h3>
+                    <p class="text-muted">Absent (${absentPercent}%)</p>
+                </div>
+            </div>
+            <p class="text-center text-muted mt-3">Total Students: ${total}</p>
+        `;
+        
+        // Create pie chart
+        const container = document.getElementById('attendanceChartContainer');
+        container.innerHTML = '<canvas id="attendanceChart"></canvas>';
+        
+        // No need to destroy - we just recreated the canvas
+        const ctx = document.getElementById('attendanceChart').getContext('2d');
+        
+        window.attendanceChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Present', 'Absent'],
+                datasets: [{
+                    data: [totalPresent, totalAbsent],
+                    backgroundColor: ['#28a745', '#dc3545'],
+                    borderColor: ['#20c997', '#fd7e14'],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const percent = ((value / total) * 100).toFixed(1);
+                                return `${label}: ${value} (${percent}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error loading overall attendance chart:', error);
+        document.getElementById('attendanceStatsText').innerHTML = `<p class="text-danger">Error: ${error.message}</p>`;
+    }
+}
+
+async function loadAttendanceChart() {
+    try {
+        const classId = document.getElementById('statsAttendanceClass').value;
+        const date = document.getElementById('statsAttendanceDate').value;
+        const statsText = document.getElementById('attendanceStatsText');
+        
+        if (!classId || !date) {
+            statsText.innerHTML = '<p class="text-muted">Select a class and date to view statistics</p>';
+            if (attendanceChart) {
+                attendanceChart.destroy();
+                attendanceChart = null;
+            }
+            return;
+        }
+        
+        // Fetch attendance stats
+        const stats = await window.getAttendanceStats(currentUser, classId, date);
+        
+        // Update stats text
+        const attendancePercentage = stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0;
+        statsText.innerHTML = `
+            <div class="row">
+                <div class="col-md-4">
+                    <h6>Total Students</h6>
+                    <h3 class="text-primary">${stats.total}</h3>
+                </div>
+                <div class="col-md-4">
+                    <h6>Present</h6>
+                    <h3 class="text-success">${stats.present}</h3>
+                </div>
+                <div class="col-md-4">
+                    <h6>Absent</h6>
+                    <h3 class="text-danger">${stats.absent}</h3>
+                </div>
+            </div>
+            <div class="mt-2">
+                <h6>Attendance Rate</h6>
+                <div class="progress">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: ${attendancePercentage}%" aria-valuenow="${attendancePercentage}" aria-valuemin="0" aria-valuemax="100">
+                        ${attendancePercentage}%
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Create or update chart
+        const container = document.getElementById('attendanceChartContainer');
+        container.innerHTML = '<canvas id="attendanceChart"></canvas>';
+        
+        // No need to destroy - we just recreated the canvas
+        const ctx = document.getElementById('attendanceChart').getContext('2d');
+        
+        window.attendanceChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Present', 'Absent'],
+                datasets: [{
+                    data: [stats.present, stats.absent],
+                    backgroundColor: ['#28a745', '#dc3545'],
+                    borderColor: ['#fff', '#fff'],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = Math.round((context.parsed / total) * 100);
+                                return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error loading attendance chart:', error);
+        document.getElementById('attendanceStatsText').innerHTML = `<p class="text-danger">Error: ${error.message}</p>`;
+    }
+}
+
 // Expose functions globally
 window.handleLogin = handleLogin;
 window.handleSignup = handleSignup;
@@ -1574,3 +1869,5 @@ window.openEditAnnouncementModal = openEditAnnouncementModal;
 window.handleSaveAnnouncementChanges = handleSaveAnnouncementChanges;
 window.handleDeleteAnnouncement = handleDeleteAnnouncement;
 window.deleteAnnouncementConfirm = deleteAnnouncementConfirm;
+window.loadAttendanceChart = loadAttendanceChart;
+window.loadOverallAttendanceChart = loadOverallAttendanceChart;

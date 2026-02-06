@@ -3,9 +3,12 @@
 
 /**
  * Take attendance for a class
+ * Admins can take attendance for any class
+ * Teachers can only take attendance for their assigned classes
  */
 const takeAttendance = async (user, classId, attendanceData) => {
-  if (!isAssignedToClass(user, classId)) {
+  // Check if user has access to this class
+  if (user.role !== 'admin' && !isAssignedToClass(user, classId)) {
     throw new Error('Access denied: Not assigned to this class');
   }
 
@@ -14,11 +17,13 @@ const takeAttendance = async (user, classId, attendanceData) => {
     const attendanceDoc = {
       classId,
       teacherId: user.uid,
+      teacherName: user.name,
+      teacherRole: user.role,
       date: new Date().toISOString().split('T')[0],
       timestamp: window.firebase.firestore.Timestamp.now(),
-      students: attendanceData.students, // Array of {studentId, status: 'present'|'absent'|'late'}
-      subject: attendanceData.subject,
-      period: attendanceData.period,
+      students: attendanceData.students, // Array of {studentId, studentName, status: 'present'|'absent'|'late'}
+      subject: attendanceData.subject || '',
+      period: attendanceData.period || '',
       notes: attendanceData.notes || '',
       status: 'submitted',
       updatedAt: window.firebase.firestore.Timestamp.now(),
@@ -209,9 +214,80 @@ const getClassAttendanceSummary = async (user, classId, date) => {
     throw new Error(`Failed to fetch class attendance summary: ${error.message}`);
   }
 };
+
+/**
+ * Get today's attendance for a class (for display/editing)
+ */
+const getTodayAttendance = async (user, classId) => {
+  // Admins can view any class, teachers only their assigned classes
+  if (user.role !== 'admin' && !isAssignedToClass(user, classId)) {
+    throw new Error('Access denied: Not assigned to this class');
+  }
+
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const attendanceId = `${classId}_${today}`;
+    
+    const attendanceDoc = await window.db.collection('attendance').doc(attendanceId).get();
+    
+    if (!attendanceDoc.exists) {
+      return null; // No attendance record for today yet
+    }
+    
+    return {
+      id: attendanceDoc.id,
+      ...attendanceDoc.data(),
+    };
+  } catch (error) {
+    throw new Error(`Failed to fetch today's attendance: ${error.message}`);
+  }
+};
+
+/**
+ * Get attendance statistics for a class on a specific date
+ */
+const getAttendanceStats = async (user, classId, date = null) => {
+  // Admins can view any class, teachers only their assigned classes
+  if (user.role !== 'admin' && !isAssignedToClass(user, classId)) {
+    throw new Error('Access denied: Not assigned to this class');
+  }
+
+  try {
+    const targetDate = date || new Date().toISOString().split('T')[0];
+    const attendanceId = `${classId}_${targetDate}`;
+    
+    const attendanceDoc = await window.db.collection('attendance').doc(attendanceId).get();
+    
+    if (!attendanceDoc.exists) {
+      return {
+        present: 0,
+        absent: 0,
+        total: 0,
+      };
+    }
+    
+    const attendance = attendanceDoc.data();
+    const students = attendance.students || [];
+    
+    const presentCount = students.filter(s => s.status === 'present').length;
+    const absentCount = students.filter(s => s.status === 'absent').length;
+    
+    return {
+      present: presentCount,
+      absent: absentCount,
+      total: students.length,
+      students: students,
+    };
+  } catch (error) {
+    throw new Error(`Failed to fetch attendance stats: ${error.message}`);
+  }
+};
+
 // Expose functions globally
 window.takeAttendance = takeAttendance;
 window.updateAttendance = updateAttendance;
 window.getAttendanceHistory = getAttendanceHistory;
 window.getStudentAttendanceReport = getStudentAttendanceReport;
 window.getClassAttendanceSummary = getClassAttendanceSummary;
+window.getTodayAttendance = getTodayAttendance;
+window.getAttendanceStats = getAttendanceStats;

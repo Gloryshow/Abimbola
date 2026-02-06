@@ -67,7 +67,7 @@ const getClassStudents = async (user, classId) => {
 
   try {
     const studentsSnapshot = await window.db.collection('students')
-      .where('classId', '==', classId)
+      .where('class', '==', classId)
       .get();
 
     return studentsSnapshot.docs.map((doc) => {
@@ -80,6 +80,74 @@ const getClassStudents = async (user, classId) => {
     });
   } catch (error) {
     throw new Error(`Failed to fetch class students: ${error.message}`);
+  }
+};
+
+/**
+ * Get all classes (admin only)
+ */
+const getAllClasses = async (user) => {
+  if (!user || user.role !== 'admin') {
+    throw new Error('Access denied: Only admins can view all classes');
+  }
+
+  try {
+    const classesSet = new Set();
+    
+    // Get all teachers and collect their assigned classes
+    const teachersSnapshot = await window.db.collection('teachers').get();
+    teachersSnapshot.docs.forEach((doc) => {
+      const teacher = doc.data();
+      if (teacher.assignedClasses && Array.isArray(teacher.assignedClasses)) {
+        teacher.assignedClasses.forEach((className) => classesSet.add(className));
+      }
+    });
+    
+    // Also get all classes from students collection
+    const studentsSnapshot = await window.db.collection('students').get();
+    studentsSnapshot.docs.forEach((doc) => {
+      const student = doc.data();
+      if (student.class) {
+        classesSet.add(student.class);
+      }
+    });
+    
+    // Convert to array of class objects, sorted
+    return Array.from(classesSet)
+      .sort()
+      .map((className) => ({
+        id: className,
+        name: className,
+      }));
+  } catch (error) {
+    throw new Error(`Failed to fetch all classes: ${error.message}`);
+  }
+};
+
+/**
+ * Get all students in a class (admin only)
+ */
+const getAllStudentsInClass = async (user, classId) => {
+  if (!user || user.role !== 'admin') {
+    throw new Error('Access denied: Only admins can view all students');
+  }
+
+  try {
+    const studentsSnapshot = await window.db.collection('students')
+      .where('class', '==', classId)
+      .get();
+
+    return studentsSnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        name: data.name || '',
+        email: data.email || '',
+        registrationNumber: data.registrationNumber || ''
+      };
+    });
+  } catch (error) {
+    throw new Error(`Failed to fetch students in class: ${error.message}`);
   }
 };
 
@@ -184,6 +252,8 @@ const updateTeacherAssignment = async (teacherUid, assignmentData) => {
 window.getTeacherDashboardOverview = getTeacherDashboardOverview;
 window.getTeacherClasses = getTeacherClasses;
 window.getClassStudents = getClassStudents;
+window.getAllClasses = getAllClasses;
+window.getAllStudentsInClass = getAllStudentsInClass;
 window.getTeacherProfile = getTeacherProfile;
 window.updateTeacherProfile = updateTeacherProfile;
 window.getPendingTeachers = getPendingTeachers;
