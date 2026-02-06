@@ -7,10 +7,29 @@ const getTeacherDashboardOverview = async (user) => {
   try {
     const assignedClasses = user.assignedClasses || [];
     const assignedSubjects = user.assignedSubjects || [];
+    
+    let totalStudents = 0;
+
+    // If admin, count all students
+    if (user.role === 'admin') {
+      const studentsSnapshot = await window.db.collection('students').get();
+      totalStudents = studentsSnapshot.size;
+    } else if (user.role === 'teacher' && assignedClasses.length > 0) {
+      // If teacher, count students in their assigned classes
+      try {
+        const studentsSnapshot = await window.db.collection('students')
+          .where('class', 'in', assignedClasses)
+          .get();
+        totalStudents = studentsSnapshot.size;
+      } catch (error) {
+        console.error('Error counting students for teacher:', error);
+        totalStudents = 0;
+      }
+    }
 
     return {
       totalClasses: assignedClasses.length,
-      totalStudents: 0,
+      totalStudents: totalStudents,
       totalSubjects: assignedSubjects.length,
       announcements: [],
       timetable: [],
