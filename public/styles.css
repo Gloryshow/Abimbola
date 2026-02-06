@@ -969,3 +969,115 @@ body {
         font-size: 12px;
     }
 }
+
+/* Mobile Dashboard Dropdown Styles */
+.stat-card-sm {
+    background: var(--card-bg);
+    padding: 12px;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    text-align: center;
+    border-left: 3px solid var(--primary-color);
+    transition: all 0.2s ease;
+}
+
+.stat-card-sm:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+}
+
+.stat-card-sm h6 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.stat-card-sm small {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.stat-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 12px;
+    background-color: #f0f9ff;
+    border-radius: 6px;
+    border-left: 3px solid var(--primary-color);
+    white-space: nowrap;
+}
+
+.stat-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 12px;
+}
+
+.stat-value {
+    color: var(--primary-color);
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.nav-link-sm {
+    padding: 0.5rem 0.75rem !important;
+    font-size: 13px !important;
+    font-weight: 600;
+}
+
+/* Mobile menu styles */
+#mobileMenu {
+    animation: slideDown 0.3s ease-in-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Mobile Navigation Styles */
+#mobileMenu .nav-link {
+    padding: 0.75rem 1rem !important;
+    color: var(--text-primary) !important;
+    font-weight: 600;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+#mobileMenu .nav-link:hover {
+    background-color: #f0f9ff !important;
+    color: var(--primary-color) !important;
+    border-left: 3px solid var(--primary-color);
+    padding-left: calc(1rem - 3px) !important;
+}
+
+#mobileMenu .nav-link.active {
+    background-color: #f0f9ff;
+    color: var(--primary-color);
+    border-left: 3px solid var(--primary-color);
+    padding-left: calc(1rem - 3px) !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 991px) {
+    .navbar {
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+    
+    .navbar-brand {
+        font-size: 16px;
+    }
+    
+    #mobileMenu {
+        padding-top: 0.5rem;
+    }
+}

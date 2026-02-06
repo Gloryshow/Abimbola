@@ -144,7 +144,7 @@
                 <div class="auth-header">
                     <div class="auth-logo">📚</div>
                     <h1>Abimbola School</h1>
-                    <p>Teacher Portal</p>
+                    <p>Management Portal</p>
                 </div>
                 <div class="auth-box" id="loginBox">
                     <h2 class="text-center mb-4">Sign In</h2>
@@ -518,27 +518,68 @@
 
     <!-- Dashboard Page -->
     <div id="dashboardPage" class="page">
-        <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom border-3" style="border-color: #667eea !important;">
-            <div class="container-fluid px-4">
-                <span class="navbar-brand">
-                    <span class="me-2">📚</span>Abimbola School
-                </span>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom border-3" style="border-color: #667eea !important; padding: 0.75rem 0;">
+            <div class="container-fluid px-3 px-md-4">
+                <span class="navbar-brand me-3"><span class="me-2">📚</span>Abimbola School</span>
+                
+                <!-- Desktop Navigation -->
+                <div class="d-none d-lg-flex align-items-center gap-3 flex-grow-1">
+                    <div class="d-flex gap-2 align-items-center">
+                        <div class="stat-badge"><small class="stat-label">Classes</small><strong id="statsClasses" class="stat-value">0</strong></div>
+                        <div class="stat-badge"><small class="stat-label">Students</small><strong id="statsStudents" class="stat-value">0</strong></div>
+                        <div class="stat-badge"><small class="stat-label">Subjects</small><strong id="statsSubjects" class="stat-value">0</strong></div>
+                        <div class="stat-badge"><small class="stat-label">Announcements</small><strong id="statsAnnouncements" class="stat-value">0</strong></div>
+                    </div>
+                    <div style="width: 1px; height: 30px; background-color: #e2e8f0;"></div>
+                    <ul class="nav gap-1 border-0" role="tablist">
+                        <li class="nav-item"><button class="nav-link nav-link-sm" onclick="switchTab('overview')">📊 Overview</button></li>
+                        <li class="nav-item"><button class="nav-link nav-link-sm" onclick="switchTab('classes')">📚 Classes</button></li>
+                        <li class="nav-item"><button class="nav-link nav-link-sm" onclick="switchTab('attendance')">✓ Attendance</button></li>
+                        <li class="nav-item"><button class="nav-link nav-link-sm" onclick="switchTab('results')">📝 Results</button></li>
+                        <li class="nav-item"><button class="nav-link nav-link-sm" onclick="switchTab('announcements')">📢 Announcements</button></li>
+                        <li class="nav-item"><button class="nav-link nav-link-sm" onclick="switchTab('profile')">👤 Profile</button></li>
+                    </ul>
+                </div>
+                
+                <div class="d-none d-lg-flex gap-2 align-items-center ms-auto">
+                    <span id="teacherName" class="text-muted"></span>
+                    <button id="adminPanelBtn" onclick="showAdminPanel()" class="btn btn-primary btn-sm" style="display: none;">Admin</button>
+                    <button onclick="handleLogout()" class="btn btn-danger btn-sm">Logout</button>
+                </div>
+                
+                <button class="navbar-toggler d-lg-none ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#mobileMenu">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="collapse navbar-collapse" id="navbarNav">
-                    <div class="ms-auto d-flex gap-2 align-items-center flex-wrap">
-                        <span id="teacherName"></span>
-                        <button id="adminPanelBtn" onclick="showAdminPanel()" class="btn btn-primary btn-sm" style="display: none;">Admin Panel</button>
-                        <button onclick="handleLogout()" class="btn btn-danger btn-sm">Logout</button>
-                    </div>
-                </div>
             </div>
         </nav>
+        
+        <div class="collapse navbar-collapse d-lg-none bg-light border-bottom" id="mobileMenu">
+            <div class="container-fluid px-3 px-md-4 py-3">
+                <div class="mb-3"><span id="teacherName" class="d-block text-muted small mb-2"></span></div>
+                <div class="row g-2 mb-3">
+                    <div class="col-6 col-sm-3"><div class="stat-card stat-card-sm"><h6 class="mb-0" id="statsClasses">0</h6><small>Classes</small></div></div>
+                    <div class="col-6 col-sm-3"><div class="stat-card stat-card-sm"><h6 class="mb-0" id="statsStudents">0</h6><small>Students</small></div></div>
+                    <div class="col-6 col-sm-3"><div class="stat-card stat-card-sm"><h6 class="mb-0" id="statsSubjects">0</h6><small>Subjects</small></div></div>
+                    <div class="col-6 col-sm-3"><div class="stat-card stat-card-sm"><h6 class="mb-0" id="statsAnnouncements">0</h6><small>Announcements</small></div></div>
+                </div>
+                <nav class="nav flex-column gap-1 mb-3 border-top pt-3">
+                    <button class="nav-link text-start" onclick="switchTab('overview'); document.getElementById('mobileMenu').classList.remove('show');">📊 Overview</button>
+                    <button class="nav-link text-start" onclick="switchTab('classes'); document.getElementById('mobileMenu').classList.remove('show');">📚 My Classes</button>
+                    <button class="nav-link text-start" onclick="switchTab('attendance'); document.getElementById('mobileMenu').classList.remove('show');">✓ Attendance</button>
+                    <button class="nav-link text-start" onclick="switchTab('results'); document.getElementById('mobileMenu').classList.remove('show');">📝 Results</button>
+                    <button class="nav-link text-start" onclick="switchTab('announcements'); document.getElementById('mobileMenu').classList.remove('show');">📢 Announcements</button>
+                    <button class="nav-link text-start" onclick="switchTab('profile'); document.getElementById('mobileMenu').classList.remove('show');">👤 Profile</button>
+                </nav>
+                <div class="d-flex flex-column gap-2">
+                    <button id="adminPanelBtn" onclick="showAdminPanel()" class="btn btn-primary btn-sm" style="display: none;">Admin Panel</button>
+                    <button onclick="handleLogout()" class="btn btn-danger btn-sm w-100">Logout</button>
+                </div>
+            </div>
+        </div>
 
         <div class="container-fluid px-3 px-md-4 py-4">
-            <!-- Statistics Cards -->
-            <div class="row g-3 mb-4">
+            <!-- Statistics Cards - Desktop Only -->
+            <div class="row g-3 mb-4 d-none d-lg-flex">
                 <div class="col-12 col-sm-6 col-lg-3">
                     <div class="stat-card">
                         <h3 id="statsClasses">0</h3>
@@ -565,8 +606,8 @@
                 </div>
             </div>
 
-            <!-- Tab Navigation -->
-            <ul class="nav nav-tabs mb-4 flex-wrap" role="tablist">
+            <!-- Tab Navigation - Desktop Only -->
+            <ul class="nav nav-tabs mb-4 flex-wrap d-none d-lg-flex" role="tablist">
                 <li class="nav-item">
                     <button class="nav-link active" onclick="switchTab('overview')">📊 Overview</button>
                 </li>
