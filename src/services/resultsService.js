@@ -276,6 +276,180 @@ const getGradeDistribution = async (user, classId, subjectId) => {
     throw new Error(`Failed to get grade distribution: ${error.message}`);
   }
 };
+
+/**
+ * Calculate CA average from three tests
+ * CA1, CA2, CA3 are each /30
+ * Average = (CA1 + CA2 + CA3) / 3 (max 30)
+ */
+const calculateCAAverage = (ca1, ca2, ca3) => {
+  const total = (ca1 || 0) + (ca2 || 0) + (ca3 || 0);
+  return Math.round((total / 3) * 100) / 100; // Average of 3 tests
+};
+
+/**
+ * Calculate final score
+ * Final = CA Average + Exam Score
+ * Max: 30 (CA) + 70 (Exam) = 100
+ */
+const calculateFinalScore = (ca1, ca2, ca3, examScore) => {
+  const caAverage = calculateCAAverage(ca1, ca2, ca3);
+  const finalScore = caAverage + (examScore || 0);
+  return Math.round(finalScore * 100) / 100;
+};
+
+/**
+ * Calculate grade based on score
+ * A: 70-100, B: 60-69, C: 50-59, D: 45-49, E: 40-44, F: 0-39
+ */
+const calculateGradeFromScore = (score) => {
+  const numScore = parseFloat(score) || 0;
+  if (numScore >= 70) return 'A';
+  if (numScore >= 60) return 'B';
+  if (numScore >= 50) return 'C';
+  if (numScore >= 45) return 'D';
+  if (numScore >= 40) return 'E';
+  return 'F';
+};
+
+/**
+ * Submit or update result with CA tests and exam
+ * Accessible only by assigned teachers or admins
+ */
+const submitResult = async (user, resultData) => {
+  // Teachers can only submit for their assigned subjects
+  if (user.role === 'teacher' && !user.assignedSubjects?.includes(resultData.subjectId)) {
+    throw new Error('Access denied: You are not assigned to this subject');
+  }
+
+  try {
+    const resultId = `${resultData.studentId}_${resultData.subjectId}_${resultData.classId}_${resultData.termId || 'final'}`;
+    
+    // Calculate CA average and final score
+    const caAverage = calculateCAAverage(resultData.ca1, resultData.ca2, resultData.ca3);
+    const finalScore = calculateFinalScore(resultData.ca1, resultData.ca2, resultData.ca3, resultData.exam);
+    const grade = calculateGradeFromScore(finalScore);
+
+    const result = {
+      studentId: resultData.studentId,
+      studentName: resultData.studentName,
+      subjectId: resultData.subjectId,
+      subjectName: resultData.subjectName,
+      classId: resultData.classId,
+      termId: resultData.termId || 'final',
+      teacherId: user.uid,
+      teacherName: user.name,
+      
+      // Individual test scores (/30 each)
+      ca1: resultData.ca1 || 0,
+      ca2: resultData.ca2 || 0,
+      ca3: resultData.ca3 || 0,
+      
+      // Exam score (/70)
+      exam: resultData.exam || 0,
+      
+      // Calculated values
+      caAverage: caAverage,
+      finalScore: finalScore,
+      grade: grade,
+      
+      // Metadata
+      comments: resultData.comments || '',
+      status: 'submitted',
+      submittedAt: window.firebase.firestore.Timestamp.now(),
+      updatedAt: window.firebase.firestore.Timestamp.now(),
+    };
+
+    await window.db.collection('results').doc(resultId).set(result, { merge: true });
+
+    return {
+      success: true,
+      resultId,
+      finalScore: finalScore,
+      grade: grade,
+      message: 'Result submitted successfully',
+    };
+  } catch (error) {
+    throw new Error(`Failed to submit result: ${error.message}`);
+  }
+};
+
+/**
+ * Get results for a student in a term
+ */
+const getStudentTermResults = async (user, studentId, termId) => {
+  try {
+    const resultsSnapshot = await window.db.collection('results')
+      .where('studentId', '==', studentId)
+      .where('termId', '==', termId || 'final')
+      .get();
+
+    return resultsSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  } catch (error) {
+    throw new Error(`Failed to fetch student results: ${error.message}`);
+  }
+};
+
+/**
+ * Get results submitted by a teacher for a class/subject
+ */
+const getTeacherResults = async (user, classId, subjectId, termId) => {
+  if (user.role === 'teacher' && !user.assignedSubjects?.includes(subjectId)) {
+    throw new Error('Access denied: You are not assigned to this subject');
+  }
+
+  try {
+    const resultsSnapshot = await window.db.collection('results')
+      .where('classId', '==', classId)
+      .where('subjectId', '==', subjectId)
+      .where('termId', '==', termId || 'final')
+      .get();
+
+    return resultsSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  } catch (error) {
+    throw new Error(`Failed to fetch results: ${error.message}`);
+  }
+};
+
+/**
+ * Get all results for admin - with optional filtering
+ */
+const getAdminResults = async (user, classId, subjectId, termId) => {
+  // Only admins can view all results
+  if (user.role !== 'admin') {
+    throw new Error('Access denied: Only admins can view all results');
+  }
+
+  try {
+    let query = window.db.collection('results');
+
+    if (classId) {
+      query = query.where('classId', '==', classId);
+    }
+    if (subjectId) {
+      query = query.where('subjectId', '==', subjectId);
+    }
+    if (termId) {
+      query = query.where('termId', '==', termId);
+    }
+
+    const resultsSnapshot = await query.get();
+
+    return resultsSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  } catch (error) {
+    throw new Error(`Failed to fetch results: ${error.message}`);
+  }
+};
+
 // Expose functions globally
 window.enterResult = enterResult;
 window.updateResult = updateResult;
@@ -284,3 +458,10 @@ window.getStudentResults = getStudentResults;
 window.getPendingResults = getPendingResults;
 window.bulkEnterResults = bulkEnterResults;
 window.getGradeDistribution = getGradeDistribution;
+window.calculateCAAverage = calculateCAAverage;
+window.calculateFinalScore = calculateFinalScore;
+window.calculateGradeFromScore = calculateGradeFromScore;
+window.submitResult = submitResult;
+window.getStudentTermResults = getStudentTermResults;
+window.getTeacherResults = getTeacherResults;
+window.getAdminResults = getAdminResults;

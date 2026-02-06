@@ -745,13 +745,17 @@ async function loadAttendanceTab() {
         // Admins can see all classes, teachers see only assigned classes
         if (currentUser && currentUser.role === 'admin') {
             classes = await window.getAllClasses(currentUser);
-        } else {
-            classes = await getTeacherClasses(currentUser);
+        } else if (currentUser) {
+            // For teachers, use their assigned classes
+            classes = currentUser.assignedClasses ? currentUser.assignedClasses.map(cls => ({
+                id: cls,
+                name: cls
+            })) : [];
         }
         
         if (classes && classes.length > 0) {
             const options = classes.map(cls => 
-                `<option value="${cls.id}">${cls.name || cls.id}</option>`
+                `<option value="${cls.id || cls}">${cls.name || cls.id || cls}</option>`
             ).join('');
             classSelect.innerHTML += options;
             statsClassSelect.innerHTML += options;
@@ -906,15 +910,29 @@ async function submitAttendance() {
 
 async function loadResultsTab() {
     try {
-        const classes = await getTeacherClasses(currentUser);
-        const classSelect = document.getElementById('resultsClass');
+        let classes;
         
-        classSelect.innerHTML = '<option value="">-- Select Class --</option>';
-        if (classes && classes.length > 0) {
-            classSelect.innerHTML += classes.map(cls => 
-                `<option value="${cls.id}">${cls.name || cls.id}</option>`
-            ).join('');
+        // Admins can see all classes, teachers see only assigned classes
+        if (currentUser.role === 'admin') {
+            classes = await getAllClasses(currentUser);
+            // Hide enter results for admins
+            document.getElementById('enterResultsCard').style.display = 'none';
+        } else {
+            classes = await getTeacherClasses(currentUser);
+            // Show enter results for teachers
+            document.getElementById('enterResultsCard').style.display = 'block';
         }
+        
+        const classSelect = document.getElementById('resultsClass');
+        const viewClassSelect = document.getElementById('viewResultsClass');
+        
+        const classOptions = '<option value="">-- Select Class --</option>' + 
+            (classes && classes.length > 0 ? classes.map(cls => 
+                `<option value="${cls.id}">${cls.name || cls.id}</option>`
+            ).join('') : '');
+        
+        classSelect.innerHTML = classOptions;
+        viewClassSelect.innerHTML = classOptions;
     } catch (error) {
         console.error('Results tab error:', error);
     }
@@ -937,39 +955,60 @@ async function loadResultsStudents() {
             resultsData = {};
             content.innerHTML = `
                 <div class="table-responsive">
-                    <table class="table">
+                    <table class="table table-sm">
                         <thead>
                             <tr>
                                 <th>Student</th>
-                                <th>Classwork</th>
-                                <th>Test</th>
-                                <th>Exam</th>
-                                <th>Total</th>
+                                <th>CA1 (/30)</th>
+                                <th>CA2 (/30)</th>
+                                <th>CA3 (/30)</th>
+                                <th>Exam (/70)</th>
+                                <th>CA Avg</th>
+                                <th>Final Score</th>
+                                <th>Grade</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${students.map((student) => {
-                                resultsData[student.id] = {classwork: 0, test: 0, exam: 0};
+                                resultsData[student.id] = {
+                                    id: student.id,
+                                    name: student.name,
+                                    regNum: student.regNum || 'N/A',
+                                    ca1: 0, ca2: 0, ca3: 0, exam: 0,
+                                    classId: classId,
+                                    subjectId: subjectId,
+                                    termId: document.getElementById('resultsTerm').value
+                                };
                                 return `
                                     <tr>
                                         <td>${student.name || 'N/A'}</td>
                                         <td>
-                                            <input type="number" class="form-control form-control-sm" 
-                                                   max="15" min="0" placeholder="0"
-                                                   onchange="calculateTotal('${student.id}')">
+                                            <input type="number" class="form-control form-control-sm ca-input" 
+                                                   data-student="${student.id}" data-field="ca1"
+                                                   max="30" min="0" step="0.5" placeholder="0"
+                                                   onchange="updateResultsRow('${student.id}')">
                                         </td>
                                         <td>
-                                            <input type="number" class="form-control form-control-sm" 
-                                                   max="10" min="0" placeholder="0"
-                                                   onchange="calculateTotal('${student.id}')">
+                                            <input type="number" class="form-control form-control-sm ca-input" 
+                                                   data-student="${student.id}" data-field="ca2"
+                                                   max="30" min="0" step="0.5" placeholder="0"
+                                                   onchange="updateResultsRow('${student.id}')">
                                         </td>
                                         <td>
-                                            <input type="number" class="form-control form-control-sm" 
-                                                   max="75" min="0" placeholder="0"
-                                                   onchange="calculateTotal('${student.id}')">
+                                            <input type="number" class="form-control form-control-sm ca-input" 
+                                                   data-student="${student.id}" data-field="ca3"
+                                                   max="30" min="0" step="0.5" placeholder="0"
+                                                   onchange="updateResultsRow('${student.id}')">
                                         </td>
-                                        <td><input type="text" class="form-control form-control-sm" 
-                                                   id="total_${student.id}" readonly></td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm ca-input" 
+                                                   data-student="${student.id}" data-field="exam"
+                                                   max="70" min="0" step="0.5" placeholder="0"
+                                                   onchange="updateResultsRow('${student.id}')">
+                                        </td>
+                                        <td><input type="text" class="form-control form-control-sm ca-avg_${student.id}" readonly></td>
+                                        <td><input type="text" class="form-control form-control-sm final_${student.id}" readonly></td>
+                                        <td><input type="text" class="form-control form-control-sm grade_${student.id}" readonly></td>
                                     </tr>
                                 `;
                             }).join('')}
@@ -986,14 +1025,237 @@ async function loadResultsStudents() {
     }
 }
 
-function calculateTotal(studentId) {
-    const total = Object.values(resultsData[studentId] || {}).reduce((a, b) => a + b, 0);
-    const totalField = document.getElementById('total_' + studentId);
-    if (totalField) totalField.value = total;
+async function loadResultsSubjects() {
+    const classId = document.getElementById('resultsClass').value;
+    if (!classId) return;
+    
+    try {
+        const subjects = await getTeacherSubjects(currentUser, classId);
+        const subjectSelect = document.getElementById('resultsSubject');
+        
+        subjectSelect.innerHTML = '<option value="">-- Select Subject --</option>';
+        if (subjects && subjects.length > 0) {
+            subjectSelect.innerHTML += subjects.map(subj => 
+                `<option value="${subj.id}">${subj.name || subj.id}</option>`
+            ).join('');
+        }
+    } catch (error) {
+        console.error('Load subjects error:', error);
+    }
 }
 
-async function submitResults() {
-    alert('Results submission will save to Firebase');
+function updateResultsRow(studentId) {
+    if (!resultsData[studentId]) return;
+    
+    const ca1Input = document.querySelector(`[data-student="${studentId}"][data-field="ca1"]`);
+    const ca2Input = document.querySelector(`[data-student="${studentId}"][data-field="ca2"]`);
+    const ca3Input = document.querySelector(`[data-student="${studentId}"][data-field="ca3"]`);
+    const examInput = document.querySelector(`[data-student="${studentId}"][data-field="exam"]`);
+    
+    const ca1 = parseFloat(ca1Input?.value) || 0;
+    const ca2 = parseFloat(ca2Input?.value) || 0;
+    const ca3 = parseFloat(ca3Input?.value) || 0;
+    const exam = parseFloat(examInput?.value) || 0;
+    
+    const caAvgField = document.querySelector(`.ca-avg_${studentId}`);
+    const finalField = document.querySelector(`.final_${studentId}`);
+    const gradeField = document.querySelector(`.grade_${studentId}`);
+    
+    // Update data
+    resultsData[studentId].ca1 = ca1;
+    resultsData[studentId].ca2 = ca2;
+    resultsData[studentId].ca3 = ca3;
+    resultsData[studentId].exam = exam;
+    
+    // Only calculate if ALL fields have been entered
+    if (ca1Input?.value && ca2Input?.value && ca3Input?.value && examInput?.value) {
+        const caAvg = window.calculateCAAverage(ca1, ca2, ca3);
+        const finalScore = window.calculateFinalScore(ca1, ca2, ca3, exam);
+        const grade = window.calculateGradeFromScore(finalScore);
+        
+        caAvgField.value = caAvg.toFixed(2);
+        finalField.value = finalScore.toFixed(2);
+        gradeField.value = grade;
+        
+        resultsData[studentId].caAverage = caAvg;
+        resultsData[studentId].finalScore = finalScore;
+        resultsData[studentId].grade = grade;
+    } else {
+        // Clear calculated fields if not all inputs are filled
+        caAvgField.value = '';
+        finalField.value = '';
+        gradeField.value = '';
+        
+        resultsData[studentId].caAverage = 0;
+        resultsData[studentId].finalScore = 0;
+        resultsData[studentId].grade = '';
+    }
+}
+
+async function submitResultForm() {
+    const classId = document.getElementById('resultsClass').value;
+    const subjectId = document.getElementById('resultsSubject').value;
+    const messageDiv = document.getElementById('resultsMessage');
+    
+    if (!classId || !subjectId) {
+        messageDiv.innerHTML = '<div class="alert alert-warning">Please select class and subject</div>';
+        return;
+    }
+    
+    try {
+        messageDiv.innerHTML = '<div class="alert alert-info">Saving results...</div>';
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (const studentId in resultsData) {
+            const result = resultsData[studentId];
+            if (result.ca1 || result.ca2 || result.ca3 || result.exam) {
+                try {
+                    await window.submitResult(currentUser, {
+                        studentId: result.id,
+                        studentName: result.name,
+                        subjectId: subjectId,
+                        classId: classId,
+                        termId: document.getElementById('resultsTerm').value,
+                        ca1: result.ca1,
+                        ca2: result.ca2,
+                        ca3: result.ca3,
+                        exam: result.exam,
+                        comments: ''
+                    });
+                    successCount++;
+                } catch (error) {
+                    console.error(`Error saving result for ${result.name}:`, error);
+                    errorCount++;
+                }
+            }
+        }
+        
+        if (successCount > 0) {
+            messageDiv.innerHTML = `<div class="alert alert-success">Successfully saved ${successCount} result(s)${errorCount > 0 ? `. ${errorCount} failed.` : ''}</div>`;
+        } else {
+            messageDiv.innerHTML = '<div class="alert alert-warning">No results to save</div>';
+        }
+    } catch (error) {
+        console.error('Submit results error:', error);
+        messageDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+    }
+}
+
+async function loadViewResults() {
+    const classId = document.getElementById('viewResultsClass').value;
+    const subjectId = document.getElementById('viewResultsSubject').value;
+    const termId = document.getElementById('viewResultsTerm').value;
+    const content = document.getElementById('viewResultsContent');
+    
+    if (!classId || !subjectId) {
+        content.innerHTML = '';
+        document.getElementById('printBtn').style.display = 'none';
+        return;
+    }
+    
+    try {
+        let results;
+        
+        // Use appropriate function based on user role
+        if (currentUser.role === 'admin') {
+            results = await window.getAdminResults(currentUser, classId, subjectId, termId);
+        } else {
+            results = await window.getTeacherResults(currentUser, classId, subjectId, termId);
+        }
+        
+        if (results && results.length > 0) {
+            document.getElementById('printBtn').style.display = 'block';
+            content.innerHTML = `
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>CA1</th>
+                                <th>CA2</th>
+                                <th>CA3</th>
+                                <th>Exam</th>
+                                <th>CA Avg</th>
+                                <th>Final Score</th>
+                                <th>Grade</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${results.map((result) => `
+                                <tr>
+                                    <td>${result.studentName || 'N/A'}</td>
+                                    <td>${result.ca1 || 0}</td>
+                                    <td>${result.ca2 || 0}</td>
+                                    <td>${result.ca3 || 0}</td>
+                                    <td>${result.exam || 0}</td>
+                                    <td>${result.caAverage ? result.caAverage.toFixed(2) : '0'}</td>
+                                    <td>${result.finalScore ? result.finalScore.toFixed(2) : '0'}</td>
+                                    <td><strong>${result.grade || 'N/A'}</strong></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        } else {
+            document.getElementById('printBtn').style.display = 'none';
+            content.innerHTML = '<p class="text-muted">No results found</p>';
+        }
+    } catch (error) {
+        console.error('Load view results error:', error);
+        document.getElementById('printBtn').style.display = 'none';
+        content.innerHTML = `<p class="text-danger">Error: ${error.message}</p>`;
+    }
+}
+
+function printResults() {
+    const classId = document.getElementById('viewResultsClass').value;
+    const subjectId = document.getElementById('viewResultsSubject').value;
+    const termId = document.getElementById('viewResultsTerm').value;
+    const table = document.querySelector('#viewResultsContent table');
+    
+    if (!table) {
+        alert('No results to print');
+        return;
+    }
+    
+    const printWindow = window.open('', 'PRINT', 'height=600,width=800');
+    const schoolName = 'Abimbola School Management System';
+    
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Results Print</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                .header { text-align: center; margin-bottom: 20px; }
+                .header h2 { margin: 5px 0; }
+                .header p { margin: 2px 0; color: #666; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #667eea; color: white; font-weight: bold; }
+                tr:nth-child(even) { background-color: #f9f9f9; }
+                .footer { margin-top: 30px; font-size: 12px; color: #666; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h2>${schoolName}</h2>
+                <p>Results Sheet</p>
+                <p>Term: ${termId.replace('term', 'Term ')} | Date: ${new Date().toLocaleDateString()}</p>
+            </div>
+            ${table.outerHTML}
+            <div class="footer">
+                <p>Printed on: ${new Date().toLocaleString()}</p>
+            </div>
+        </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.print();
 }
 
 // ============================================
@@ -1299,83 +1561,99 @@ function showError(element, message) {
     element.textContent = message;
     element.style.color = message.includes('Signing in') ? '#667eea' : '#dc3545';
 }
-async function handleApproveTeacher(teacherUid) {
-    try {
-        await approveTeacher(teacherUid);
-        alert('Teacher approved successfully!');
-        loadAdminPanel();
-    } catch (error) {
-        alert('Failed to approve teacher: ' + error.message);
-        console.error('Approval error:', error);
-    }
+function handleApproveTeacher(teacherUid) {
+    console.log('Approving teacher:', teacherUid);
+    window.approveTeacher(teacherUid)
+        .then(() => {
+            console.log('Teacher approved');
+            alert('Teacher approved successfully!');
+            loadAdminPanel();
+        })
+        .catch(error => {
+            console.error('Approval error:', error);
+            alert('Failed to approve teacher: ' + error.message);
+        });
 }
 
-async function handleRejectTeacher(teacherUid) {
+function handleRejectTeacher(teacherUid) {
+    console.log('Rejecting teacher:', teacherUid);
     if (confirm('Are you sure you want to reject this teacher?')) {
-        try {
-            // For now, just delete the teacher document
-            await window.db.collection('teachers').doc(teacherUid).delete();
-            alert('Teacher rejected successfully!');
-            loadAdminPanel();
-        } catch (error) {
-            alert('Failed to reject teacher: ' + error.message);
-            console.error('Rejection error:', error);
-        }
+        window.db.collection('teachers').doc(teacherUid).delete()
+            .then(() => {
+                console.log('Teacher rejected');
+                alert('Teacher rejected successfully!');
+                loadAdminPanel();
+            })
+            .catch(error => {
+                console.error('Rejection error:', error);
+                alert('Failed to reject teacher: ' + error.message);
+            });
     }
 }
 
 function openTeacherAssignmentModal(teacherUid) {
-    // Fetch the teacher data and populate the modal
-    window.db.collection('teachers').doc(teacherUid).get().then(doc => {
-        if (doc.exists) {
-            const teacher = doc.data();
-            currentEditingTeacher = { uid: teacherUid, ...teacher };
-            
-            document.getElementById('editTeacherId').value = teacherUid;
-            document.getElementById('editTeacherName').textContent = teacher.name;
-            document.getElementById('editTeacherRole').value = teacher.role || 'teacher';
-            document.getElementById('editTeacherPhone').value = teacher.phone || '';
-            document.getElementById('editTeacherSubjects').value = (teacher.assignedSubjects || []).join(', ');
-            
-            // Reset all department checkboxes
-            document.querySelectorAll('.department-checkbox').forEach(checkbox => {
-                checkbox.checked = false;
-            });
-            
-            // Check the assigned departments
-            const departments = teacher.departments || [];
-            departments.forEach(deptValue => {
-                const deptId = deptValue.toLowerCase().replace(/\s+/g, '_').replace(/[\(\)]/g, '');
-                const checkbox = document.getElementById(`dept_${deptId}`);
-                if (checkbox) {
-                    checkbox.checked = true;
+    console.log('Opening modal for teacher:', teacherUid);
+    
+    window.db.collection('teachers').doc(teacherUid).get()
+        .then(doc => {
+            if (doc.exists) {
+                const teacher = doc.data();
+                currentEditingTeacher = { uid: teacherUid, ...teacher };
+                
+                document.getElementById('editTeacherId').value = teacherUid;
+                document.getElementById('editTeacherName').textContent = teacher.name;
+                document.getElementById('editTeacherRole').value = teacher.role || 'teacher';
+                document.getElementById('editTeacherPhone').value = teacher.phone || '';
+                document.getElementById('editTeacherSubjects').value = (teacher.assignedSubjects || []).join(', ');
+                
+                // Reset all department checkboxes
+                document.querySelectorAll('.department-checkbox').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                
+                // Check the assigned departments
+                const departments = teacher.departments || [];
+                departments.forEach(deptValue => {
+                    const deptId = deptValue.toLowerCase().replace(/\s+/g, '_').replace(/[\(\)]/g, '');
+                    const checkbox = document.getElementById(`dept_${deptId}`);
+                    if (checkbox) {
+                        checkbox.checked = true;
+                    }
+                });
+                
+                // Reset all class checkboxes
+                document.querySelectorAll('.class-checkbox').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                
+                // Check the assigned classes
+                const assignedClasses = teacher.assignedClasses || [];
+                assignedClasses.forEach(classValue => {
+                    const classId = classValue.toLowerCase().replace(/\s+/g, '_').replace(/[\(\)]/g, '');
+                    const checkbox = document.getElementById(`class_${classId}`);
+                    if (checkbox) {
+                        checkbox.checked = true;
+                    }
+                });
+                
+                // Open the modal
+                const modalElement = document.getElementById('assignTeacherModal');
+                if (modalElement) {
+                    const modal = new bootstrap.Modal(modalElement);
+                    modal.show();
+                    console.log('Modal opened successfully');
+                } else {
+                    console.error('Modal element not found');
                 }
-            });
-            
-            // Reset all class checkboxes
-            document.querySelectorAll('.class-checkbox').forEach(checkbox => {
-                checkbox.checked = false;
-            });
-            
-            // Check the assigned classes
-            const assignedClasses = teacher.assignedClasses || [];
-            assignedClasses.forEach(classValue => {
-                const classId = classValue.toLowerCase().replace(/\s+/g, '_').replace(/[\(\)]/g, '');
-                const checkbox = document.getElementById(`class_${classId}`);
-                if (checkbox) {
-                    checkbox.checked = true;
-                }
-            });
-            
-            // Open the modal
-            const modalElement = document.getElementById('assignTeacherModal');
-            const modal = new bootstrap.Modal(modalElement);
-            modal.show();
-        }
-    }).catch(error => {
-        console.error('Error fetching teacher data:', error);
-        alert('Error loading teacher data');
-    });
+            } else {
+                alert('Teacher not found');
+                console.error('Teacher document does not exist');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching teacher data:', error);
+            alert('Error loading teacher data: ' + error.message);
+        });
 }
 
 async function handleSaveTeacherAssignment() {

@@ -73,11 +73,34 @@ const getClassStudents = async (user, classId) => {
       return {
         id: doc.id,
         name: data.name || '',
-        email: data.email || ''
+        email: data.email || '',
+        regNum: data.regNum || ''
       };
     });
   } catch (error) {
     throw new Error(`Failed to fetch class students: ${error.message}`);
+  }
+};
+
+/**
+ * Get subjects assigned to teacher for a specific class
+ */
+const getTeacherSubjects = async (user, classId) => {
+  if (!user) return [];
+
+  try {
+    // Get all assigned subjects for the teacher
+    const assignedSubjects = user.assignedSubjects || [];
+    
+    if (assignedSubjects.length === 0) return [];
+
+    // Return subjects as objects
+    return assignedSubjects.map((subjectId) => ({
+      id: subjectId,
+      name: subjectId, // You can enhance this to fetch from a subjects collection
+    }));
+  } catch (error) {
+    throw new Error(`Failed to fetch teacher subjects: ${error.message}`);
   }
 };
 
@@ -255,6 +278,7 @@ const updateTeacherAssignment = async (teacherUid, assignmentData) => {
 window.getTeacherDashboardOverview = getTeacherDashboardOverview;
 window.getTeacherClasses = getTeacherClasses;
 window.getClassStudents = getClassStudents;
+window.getTeacherSubjects = getTeacherSubjects;
 window.getAllClasses = getAllClasses;
 window.getAllStudentsInClass = getAllStudentsInClass;
 window.getTeacherProfile = getTeacherProfile;

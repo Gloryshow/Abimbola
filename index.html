@@ -838,7 +838,8 @@
 
             <!-- Results Tab -->
             <div id="resultsTab" class="tab-content">
-                <div class="card">
+                <!-- Enter Results Section -->
+                <div class="card mb-4" id="enterResultsCard">
                     <div class="card-header bg-primary text-white">
                         <h5 class="mb-0">📝 Enter Results</h5>
                     </div>
@@ -846,7 +847,7 @@
                         <div class="row mb-3">
                             <div class="col-12 col-md-6">
                                 <label class="form-label">Select Class</label>
-                                <select id="resultsClass" class="form-control" onchange="loadResultsStudents()">
+                                <select id="resultsClass" class="form-control" onchange="loadResultsSubjects()">
                                     <option value="">-- Select Class --</option>
                                 </select>
                             </div>
@@ -856,11 +857,55 @@
                                     <option value="">-- Select Subject --</option>
                                 </select>
                             </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Select Term</label>
+                                <select id="resultsTerm" class="form-control" onchange="loadResultsStudents()">
+                                    <option value="term1">Term 1</option>
+                                    <option value="term2">Term 2</option>
+                                    <option value="term3">Term 3</option>
+                                </select>
+                            </div>
                         </div>
                         <div id="resultsStudentsContent">
                             <!-- Results table will load here -->
                         </div>
-                        <button onclick="submitResults()" class="btn btn-success mt-3">Save Results</button>
+                        <div id="resultsMessage" class="mt-3"></div>
+                        <button onclick="submitResultForm()" class="btn btn-success mt-3">Save Results</button>
+                    </div>
+                </div>
+
+                <!-- View Results Section -->
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">📊 View Results</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Select Class</label>
+                                <select id="viewResultsClass" class="form-control" onchange="loadViewResults()">
+                                    <option value="">-- Select Class --</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Select Subject</label>
+                                <select id="viewResultsSubject" class="form-control" onchange="loadViewResults()">
+                                    <option value="">-- Select Subject --</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Select Term</label>
+                                <select id="viewResultsTerm" class="form-control" onchange="loadViewResults()">
+                                    <option value="term1">Term 1</option>
+                                    <option value="term2">Term 2</option>
+                                    <option value="term3">Term 3</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="viewResultsContent">
+                            <!-- Results table will load here -->
+                        </div>
+                        <button onclick="printResults()" class="btn btn-primary mt-3" id="printBtn" style="display: none;">🖨️ Print Results</button>
                     </div>
                 </div>
             </div>
