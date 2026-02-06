@@ -207,6 +207,12 @@ async function handleRegisterStudent(event) {
     event.preventDefault();
     
     try {
+        // Check if user is admin
+        if (!currentUser || currentUser.role !== 'admin') {
+            showMessage('studentRegisterMessage', 'Only admins can register new students', 'danger');
+            return;
+        }
+
         const name = document.getElementById('studentName').value.trim();
         const email = document.getElementById('studentEmail').value.trim();
         const className = document.getElementById('studentClass').value;
@@ -229,17 +235,20 @@ async function handleRegisterStudent(event) {
             email,
             class: className,
             dateOfBirth: dob,
-            registrationNumber: regNum,
+            registrationNumber: regNum, // Will be auto-generated if empty
             parentName,
             parentPhone,
             phone,
             address
         });
 
-        showMessage('studentRegisterMessage', 'Student registered successfully!', 'success');
+        showMessage('studentRegisterMessage', `Student registered successfully! (Reg #: ${student.registrationNumber})`, 'success');
         
         // Reset form
         document.getElementById('studentRegistrationForm').reset();
+        
+        // Clear the registration number field for next entry
+        document.getElementById('studentRegNum').value = '';
         
         // Reload students list
         loadStudentsList();
@@ -251,13 +260,40 @@ async function handleRegisterStudent(event) {
 
 async function loadStudentsList() {
     try {
-        const students = await getStudents();
+        let students = [];
+        let displayTitle = 'Registered Students';
+        
+        // If user is a teacher, only show students in their assigned class
+        if (currentUser && currentUser.role === 'teacher') {
+            if (currentUser.assignedClass) {
+                students = await getStudentsByClass(currentUser.assignedClass);
+                displayTitle = `Students in ${currentUser.assignedClass}`;
+            } else {
+                students = [];
+            }
+        } else {
+            // Admin sees all students
+            students = await getStudents();
+        }
+
         const studentsList = document.getElementById('studentsList');
 
         if (students.length === 0) {
-            studentsList.innerHTML = '<p class="text-muted">No students registered yet</p>';
+            studentsList.innerHTML = '<p class="text-muted">No students</p>';
         } else {
-            let studentsHTML = '<div class="table-responsive"><table class="table table-hover"><thead><tr><th>Name</th><th>Email</th><th>Class</th><th>Reg. Number</th><th>Actions</th></tr></thead><tbody>';
+            // Count header with role-based info
+            const countInfo = currentUser && currentUser.role === 'teacher' 
+                ? `${students.length} student${students.length !== 1 ? 's' : ''} in ${currentUser.assignedClass}`
+                : `${students.length} total student${students.length !== 1 ? 's' : ''} registered`;
+            
+            let studentsHTML = `<div class="mb-3"><p class="text-muted"><strong>${countInfo}</strong></p></div><div class="table-responsive"><table class="table table-hover"><thead><tr><th>Name</th><th>Email</th><th>Class</th><th>Reg. Number</th>`;
+            
+            // Only show Actions column if user is admin
+            if (currentUser && currentUser.role === 'admin') {
+                studentsHTML += '<th>Actions</th>';
+            }
+            
+            studentsHTML += '</tr></thead><tbody>';
             
             students.forEach(student => {
                 studentsHTML += `
@@ -265,13 +301,18 @@ async function loadStudentsList() {
                         <td><strong>${student.name}</strong></td>
                         <td>${student.email}</td>
                         <td><span class="badge bg-primary">${student.class}</span></td>
-                        <td>${student.registrationNumber || '-'}</td>
+                        <td>${student.registrationNumber || '-'}</td>`;
+                
+                // Only show action buttons if user is admin
+                if (currentUser && currentUser.role === 'admin') {
+                    studentsHTML += `
                         <td>
                             <button onclick="editStudent('${student.id}')" class="btn btn-sm btn-info">Edit</button>
                             <button onclick="deleteStudentRecord('${student.id}', '${student.name}')" class="btn btn-sm btn-danger">Delete</button>
-                        </td>
-                    </tr>
-                `;
+                        </td>`;
+                }
+                
+                studentsHTML += '</tr>';
             });
             
             studentsHTML += '</tbody></table></div>';
@@ -284,6 +325,12 @@ async function loadStudentsList() {
 }
 
 async function deleteStudentRecord(studentId, studentName) {
+    // Check if user is admin
+    if (!currentUser || currentUser.role !== 'admin') {
+        alert('Only admins can delete students');
+        return;
+    }
+
     if (confirm(`Are you sure you want to delete ${studentName}?`)) {
         try {
             await deleteStudent(studentId);
@@ -297,6 +344,12 @@ async function deleteStudentRecord(studentId, studentName) {
 }
 
 function editStudent(studentId) {
+    // Check if user is admin
+    if (!currentUser || currentUser.role !== 'admin') {
+        alert('Only admins can edit students');
+        return;
+    }
+    
     alert('Student editing feature coming soon!');
     // This can be expanded to include edit modal
 }
@@ -980,6 +1033,13 @@ function showStudentsTab(e) {
     // Update active tab styling
     document.querySelectorAll('#adminTabs .nav-link').forEach(link => link.classList.remove('active'));
     e.target.classList.add('active');
+    
+    // Show registration form only if user is admin
+    const adminForm = document.getElementById('adminStudentForm');
+    if (adminForm) {
+        adminForm.style.display = (currentUser && currentUser.role === 'admin') ? '' : 'none';
+    }
+    
     // Load students when tab is shown
     loadStudentsList();
 }
