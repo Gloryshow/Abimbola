@@ -354,108 +354,6 @@
             </div>
 
             <!-- Fees Tab -->
-            <div id="feesTab" class="tab-pane fade" role="tabpanel">
-                <!-- Fee Structure Section -->
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header bg-success text-white">
-                                <h5 class="mb-0">💰 Fee Structure Setup</h5>
-                            </div>
-                            <div class="card-body">
-                                <form id="feeStructureForm" onsubmit="handleCreateFeeStructure(event)">
-                                    <div class="row">
-                                        <div class="col-12 col-md-3 mb-3">
-                                            <label class="form-label">Academic Session *</label>
-                                            <input type="text" id="feeStructureSession" class="form-control" placeholder="e.g., 2024/2025" required>
-                                        </div>
-                                        <div class="col-12 col-md-3 mb-3">
-                                            <label class="form-label">Select Class *</label>
-                                            <select id="feeStructureClass" class="form-control" required>
-                                                <option value="">-- Select Class --</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-12 col-md-3 mb-3">
-                                            <label class="form-label">Select Term *</label>
-                                            <select id="feeStructureTerm" class="form-control" required>
-                                                <option value="">-- Select Term --</option>
-                                                <option value="firstTerm">First Term</option>
-                                                <option value="secondTerm">Second Term</option>
-                                                <option value="thirdTerm">Third Term</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-12 col-md-4 mb-3">
-                                            <label class="form-label">&nbsp;</label>
-                                            <button type="button" class="btn btn-outline-secondary w-100" onclick="loadExistingFeeStructure()">Load Existing</button>
-                                        </div>
-                                    </div>
-
-                                    <div id="feeItemsContainer">
-                                        <div class="row mb-3">
-                                            <div class="col-12">
-                                                <h6>Fee Items</h6>
-                                            </div>
-                                        </div>
-                                        <div class="fee-item-row row mb-2" data-fee-index="0">
-                                            <div class="col-12 col-md-6 mb-2">
-                                                <input type="text" class="form-control fee-item-name" placeholder="Fee Type (e.g., Tuition)" value="Tuition">
-                                            </div>
-                                            <div class="col-12 col-md-4 mb-2">
-                                                <input type="number" class="form-control fee-item-amount" placeholder="Amount" value="45000" min="0" oninput="calculateTotalFee()">
-                                            </div>
-                                            <div class="col-12 col-md-2 mb-2">
-                                                <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeFeeItem(0)">Remove</button>
-                                            </div>
-                                        </div>
-                                        <div class="fee-item-row row mb-2" data-fee-index="1">
-                                            <div class="col-12 col-md-6 mb-2">
-                                                <input type="text" class="form-control fee-item-name" placeholder="Fee Type (e.g., Development)" value="Development">
-                                            </div>
-                                            <div class="col-12 col-md-4 mb-2">
-                                                <input type="number" class="form-control fee-item-amount" placeholder="Amount" value="5000" min="0" oninput="calculateTotalFee()">
-                                            </div>
-                                            <div class="col-12 col-md-2 mb-2">
-                                                <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeFeeItem(1)">Remove</button>
-                                            </div>
-                                        </div>
-                                        <div class="fee-item-row row mb-2" data-fee-index="2">
-                                            <div class="col-12 col-md-6 mb-2">
-                                                <input type="text" class="form-control fee-item-name" placeholder="Fee Type (e.g., Exam)" value="Exam">
-                                            </div>
-                                            <div class="col-12 col-md-4 mb-2">
-                                                <input type="number" class="form-control fee-item-amount" placeholder="Amount" value="3000" min="0" oninput="calculateTotalFee()">
-                                            </div>
-                                            <div class="col-12 col-md-2 mb-2">
-                                                <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeFeeItem(2)">Remove</button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="row mb-3 mt-3">
-                                        <div class="col-12">
-                                            <button type="button" class="btn btn-outline-primary" onclick="addFeeItem()">+ Add Fee Item</button>
-                                        </div>
-                                    </div>
-
-                                    <div class="row mb-3 p-3 bg-light rounded">
-                                        <div class="col-12">
-                                            <h6 class="mb-0">Total Fee: <span id="totalFeeDisplay" class="text-success">₦53,000</span></h6>
-                                        </div>
-                                    </div>
-
-                                    <div class="row">
-                                        <div class="col-12">
-                                            <button type="submit" class="btn btn-success">Save & Initialize Student Fees</button>
-                                            <button type="reset" class="btn btn-secondary">Reset</button>
-                                            <div id="feeStructureMessage" class="mt-2"></div>
-                                        </div>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
             </div>
         </div>
     </div>
@@ -1054,6 +952,107 @@
 
             <!-- Fee Management Tab (Admin Only) -->
             <div id="feeManagementTab" class="tab-content">
+                <!-- Fee Structure Setup Section -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-success text-white">
+                                <h5 class="mb-0">💰 Fee Structure Setup</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="feeStructureForm" onsubmit="handleCreateFeeStructure(event)">
+                                    <div class="row">
+                                        <div class="col-12 col-md-3 mb-3">
+                                            <label class="form-label">Academic Session *</label>
+                                            <input type="text" id="feeStructureSession" class="form-control" placeholder="e.g., 2024/2025" required>
+                                        </div>
+                                        <div class="col-12 col-md-3 mb-3">
+                                            <label class="form-label">Select Class *</label>
+                                            <select id="feeStructureClass" class="form-control" required>
+                                                <option value="">-- Select Class --</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-12 col-md-3 mb-3">
+                                            <label class="form-label">Select Term *</label>
+                                            <select id="feeStructureTerm" class="form-control" required>
+                                                <option value="">-- Select Term --</option>
+                                                <option value="firstTerm">First Term</option>
+                                                <option value="secondTerm">Second Term</option>
+                                                <option value="thirdTerm">Third Term</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-12 col-md-4 mb-3">
+                                            <label class="form-label">&nbsp;</label>
+                                            <button type="button" class="btn btn-outline-secondary w-100" onclick="loadExistingFeeStructure()">Load Existing</button>
+                                        </div>
+                                    </div>
+
+                                    <div id="feeItemsContainer">
+                                        <div class="row mb-3">
+                                            <div class="col-12">
+                                                <h6>Fee Items</h6>
+                                            </div>
+                                        </div>
+                                        <div class="fee-item-row row mb-2" data-fee-index="0">
+                                            <div class="col-12 col-md-6 mb-2">
+                                                <input type="text" class="form-control fee-item-name" placeholder="Fee Type (e.g., Tuition)" value="Tuition">
+                                            </div>
+                                            <div class="col-12 col-md-4 mb-2">
+                                                <input type="number" class="form-control fee-item-amount" placeholder="Amount" value="45000" min="0" oninput="calculateTotalFee()">
+                                            </div>
+                                            <div class="col-12 col-md-2 mb-2">
+                                                <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeFeeItem(0)">Remove</button>
+                                            </div>
+                                        </div>
+                                        <div class="fee-item-row row mb-2" data-fee-index="1">
+                                            <div class="col-12 col-md-6 mb-2">
+                                                <input type="text" class="form-control fee-item-name" placeholder="Fee Type (e.g., Development)" value="Development">
+                                            </div>
+                                            <div class="col-12 col-md-4 mb-2">
+                                                <input type="number" class="form-control fee-item-amount" placeholder="Amount" value="5000" min="0" oninput="calculateTotalFee()">
+                                            </div>
+                                            <div class="col-12 col-md-2 mb-2">
+                                                <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeFeeItem(1)">Remove</button>
+                                            </div>
+                                        </div>
+                                        <div class="fee-item-row row mb-2" data-fee-index="2">
+                                            <div class="col-12 col-md-6 mb-2">
+                                                <input type="text" class="form-control fee-item-name" placeholder="Fee Type (e.g., Exam)" value="Exam">
+                                            </div>
+                                            <div class="col-12 col-md-4 mb-2">
+                                                <input type="number" class="form-control fee-item-amount" placeholder="Amount" value="3000" min="0" oninput="calculateTotalFee()">
+                                            </div>
+                                            <div class="col-12 col-md-2 mb-2">
+                                                <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeFeeItem(2)">Remove</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3 mt-3">
+                                        <div class="col-12">
+                                            <button type="button" class="btn btn-outline-primary" onclick="addFeeItem()">+ Add Fee Item</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3 p-3 bg-light rounded">
+                                        <div class="col-12">
+                                            <h6 class="mb-0">Total Fee: <span id="totalFeeDisplay" class="text-success">₦53,000</span></h6>
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <button type="submit" class="btn btn-success">Save & Initialize Student Fees</button>
+                                            <button type="reset" class="btn btn-secondary">Reset</button>
+                                            <div id="feeStructureMessage" class="mt-2"></div>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Class Fee Summary Dashboard -->
                 <div class="row mb-4">
                     <div class="col-12">

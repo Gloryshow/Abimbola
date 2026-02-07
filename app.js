@@ -2367,27 +2367,60 @@ async function initializeFeesTab() {
     try {
         console.log('Initializing fees tab, currentUser:', currentUser);
         
-        // Check if getAllClasses is available
-        if (!window.getAllClasses) {
-            console.error('getAllClasses function not available');
-            return;
-        }
-        
-        // Check if user is logged in
-        if (!currentUser) {
-            console.error('User not logged in');
+        // Check if user is logged in and is admin
+        if (!currentUser || currentUser.role !== 'admin') {
+            console.error('User not authorized for fee management');
             return;
         }
         
         // Load classes for fee structure form
         let classes = [];
+        
+        // Try to get all classes
         try {
-            classes = await window.getAllClasses(currentUser);
-            console.log('Classes loaded:', classes);
-        } catch (classError) {
-            console.error('Error fetching classes:', classError);
-            // Try to get classes from alternative source if needed
-            classes = [];
+            if (window.getAllClasses) {
+                classes = await window.getAllClasses(currentUser);
+                console.log('Classes loaded via getAllClasses:', classes);
+            } else {
+                throw new Error('getAllClasses not available');
+            }
+        } catch (primaryError) {
+            console.warn('Primary class loading failed, trying fallback:', primaryError.message);
+            
+            // Fallback: Try to get classes from students and teachers collections
+            try {
+                const classesSet = new Set();
+                
+                // Get classes from students
+                const studentsSnapshot = await window.db.collection('students').get();
+                studentsSnapshot.docs.forEach((doc) => {
+                    const student = doc.data();
+                    if (student.class) {
+                        classesSet.add(student.class);
+                    }
+                });
+                
+                // Get classes from teachers
+                const teachersSnapshot = await window.db.collection('teachers').get();
+                teachersSnapshot.docs.forEach((doc) => {
+                    const teacher = doc.data();
+                    if (teacher.assignedClasses && Array.isArray(teacher.assignedClasses)) {
+                        teacher.assignedClasses.forEach((className) => classesSet.add(className));
+                    }
+                });
+                
+                classes = Array.from(classesSet)
+                    .sort()
+                    .map((className) => ({
+                        id: className,
+                        name: className,
+                    }));
+                
+                console.log('Classes loaded via fallback:', classes);
+            } catch (fallbackError) {
+                console.error('Fallback class loading also failed:', fallbackError);
+                classes = [];
+            }
         }
         
         const classSelects = [
@@ -2429,8 +2462,137 @@ async function initializeFeesTab() {
             loadFeeFormFromLocalStorage();
         }
         
+        // Load default summary for current session
+        await loadDefaultFeeSummary();
+        
     } catch (error) {
         console.error('Error initializing fees tab:', error);
+    }
+}
+
+/**
+ * Load default fee summary for current session (all students, all classes)
+ */
+async function loadDefaultFeeSummary() {
+    try {
+        // Try to get the latest session from localStorage or use current academic year
+        let latestSession = localStorage.getItem('lastFeeSession');
+        
+        // If no session in localStorage, construct from current date
+        if (!latestSession) {
+            const currentYear = new Date().getFullYear();
+            const currentMonth = new Date().getMonth();
+            // If before August, it's previous year's session
+            const sessionStart = currentMonth < 8 ? currentYear - 1 : currentYear;
+            latestSession = `${sessionStart}/${sessionStart + 1}`;
+        }
+        
+        console.log('Loading default fee summary for session:', latestSession);
+        
+        // Set the session in the summary field
+        const summarySessionField = document.getElementById('summarySession');
+        if (summarySessionField) {
+            summarySessionField.value = latestSession;
+        }
+        
+        // Get all students with their fee data for all terms
+        let totalStudents = 0;
+        let totalExpected = 0;
+        let totalCollected = 0;
+        let allFeeRecords = [];
+        
+        const studentsSnapshot = await window.db.collection('students').get();
+        const terms = ['firstTerm', 'secondTerm', 'thirdTerm'];
+        
+        if (studentsSnapshot.empty) {
+            console.log('No students found');
+            return;
+        }
+        
+        for (const studentDoc of studentsSnapshot.docs) {
+            const student = studentDoc.data();
+            
+            for (const term of terms) {
+                try {
+                    const feeRecord = await window.getStudentFeeRecord(studentDoc.id, term, latestSession);
+                    if (feeRecord) {
+                        totalExpected += feeRecord.totalFee;
+                        totalCollected += feeRecord.totalPaid;
+                        allFeeRecords.push({
+                            studentId: studentDoc.id,
+                            studentName: student.name,
+                            classId: student.class,
+                            ...feeRecord,
+                        });
+                    }
+                } catch (e) {
+                    // Fee record doesn't exist for this student/term, continue
+                }
+            }
+        }
+        
+        // Only update if we have data
+        if (allFeeRecords.length > 0) {
+            totalStudents = new Set(allFeeRecords.map(r => r.studentId)).size;
+            const totalOutstanding = totalExpected - totalCollected;
+            
+            // Update summary cards
+            const summaryStudents = document.getElementById('summaryStudents');
+            const summaryExpected = document.getElementById('summaryExpected');
+            const summaryCollected = document.getElementById('summaryCollected');
+            const summaryOutstanding = document.getElementById('summaryOutstanding');
+            
+            if (summaryStudents) summaryStudents.textContent = totalStudents;
+            if (summaryExpected) summaryExpected.textContent = '₦' + totalExpected.toLocaleString();
+            if (summaryCollected) summaryCollected.textContent = '₦' + totalCollected.toLocaleString();
+            if (summaryOutstanding) summaryOutstanding.textContent = '₦' + totalOutstanding.toLocaleString();
+            
+            // Generate and display details table
+            let html = `
+                <table class="table table-striped table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Student Name</th>
+                            <th>Class</th>
+                            <th>Total Fee</th>
+                            <th>Paid</th>
+                            <th>Balance</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            allFeeRecords.forEach(record => {
+                const statusColor = record.status === 'Paid' ? 'success' : record.status === 'Part Payment' ? 'warning' : 'danger';
+                html += `
+                    <tr>
+                        <td>${record.studentName}</td>
+                        <td>${record.classId}</td>
+                        <td>₦${record.totalFee.toLocaleString()}</td>
+                        <td>₦${record.totalPaid.toLocaleString()}</td>
+                        <td>₦${record.balance.toLocaleString()}</td>
+                        <td><span class="badge bg-${statusColor}">${record.status}</span></td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+            `;
+            
+            const detailsDiv = document.getElementById('feeSummaryDetails');
+            if (detailsDiv) {
+                detailsDiv.innerHTML = html;
+            }
+            
+            console.log('Default fee summary loaded for session:', latestSession);
+        }
+        
+    } catch (error) {
+        console.error('Error loading default fee summary:', error);
+        // Don't show error to user, just log it
     }
 }
 
@@ -2749,26 +2911,79 @@ async function loadClassFeeSummary() {
         const term = document.getElementById('summaryTerm').value;
         const session = document.getElementById('summarySession').value;
         
-        if (!classId || !term || !session) {
+        // Require at least a session
+        if (!session) {
             const statsDiv = document.getElementById('feeSummaryStats');
             if (statsDiv) {
-                statsDiv.innerHTML = '<p class="text-muted">Select a class, term, and session to view summary</p>';
+                statsDiv.innerHTML = '<p class="text-muted">Please select an academic session to view summary</p>';
             }
             return;
         }
         
-        const summary = await getClassFeeSummary(classId, term, session);
+        let totalStudents = 0;
+        let totalExpected = 0;
+        let totalCollected = 0;
+        let allFeeRecords = [];
         
-        // Update stats - check if elements exist
+        const studentsSnapshot = await window.db.collection('students').get();
+        const terms = term ? [term] : ['firstTerm', 'secondTerm', 'thirdTerm'];
+        
+        // Filter students by class if specified
+        const students = classId 
+            ? studentsSnapshot.docs.filter(doc => doc.data().class === classId)
+            : studentsSnapshot.docs;
+        
+        // Load fee records for all matching students
+        for (const studentDoc of students) {
+            const student = studentDoc.data();
+            
+            for (const t of terms) {
+                try {
+                    const feeRecord = await window.getStudentFeeRecord(studentDoc.id, t, session);
+                    if (feeRecord) {
+                        totalExpected += feeRecord.totalFee;
+                        totalCollected += feeRecord.totalPaid;
+                        allFeeRecords.push({
+                            studentId: studentDoc.id,
+                            studentName: student.name,
+                            classId: student.class,
+                            term: t,
+                            ...feeRecord,
+                        });
+                    }
+                } catch (e) {
+                    // Fee record doesn't exist, continue
+                }
+            }
+        }
+        
+        // If no records found, show message
+        if (allFeeRecords.length === 0) {
+            const statsDiv = document.getElementById('feeSummaryStats');
+            if (statsDiv) {
+                statsDiv.innerHTML = '<p class="text-muted">No fee records found for the selected criteria</p>';
+            }
+            
+            const detailsDiv = document.getElementById('feeSummaryDetails');
+            if (detailsDiv) {
+                detailsDiv.innerHTML = '<p class="text-muted">No data to display</p>';
+            }
+            return;
+        }
+        
+        totalStudents = new Set(allFeeRecords.map(r => r.studentId)).size;
+        const totalOutstanding = totalExpected - totalCollected;
+        
+        // Update stats cards
         const summaryStudents = document.getElementById('summaryStudents');
         const summaryExpected = document.getElementById('summaryExpected');
         const summaryCollected = document.getElementById('summaryCollected');
         const summaryOutstanding = document.getElementById('summaryOutstanding');
         
-        if (summaryStudents) summaryStudents.textContent = summary.totalStudents;
-        if (summaryExpected) summaryExpected.textContent = '₦' + summary.totalExpected.toLocaleString();
-        if (summaryCollected) summaryCollected.textContent = '₦' + summary.totalCollected.toLocaleString();
-        if (summaryOutstanding) summaryOutstanding.textContent = '₦' + summary.totalOutstanding.toLocaleString();
+        if (summaryStudents) summaryStudents.textContent = totalStudents;
+        if (summaryExpected) summaryExpected.textContent = '₦' + totalExpected.toLocaleString();
+        if (summaryCollected) summaryCollected.textContent = '₦' + totalCollected.toLocaleString();
+        if (summaryOutstanding) summaryOutstanding.textContent = '₦' + totalOutstanding.toLocaleString();
         
         // Generate details table
         let html = `
@@ -2776,6 +2991,8 @@ async function loadClassFeeSummary() {
                 <thead class="table-light">
                     <tr>
                         <th>Student Name</th>
+                        ${!classId ? '<th>Class</th>' : ''}
+                        ${!term ? '<th>Term</th>' : ''}
                         <th>Total Fee</th>
                         <th>Paid</th>
                         <th>Balance</th>
@@ -2785,11 +3002,13 @@ async function loadClassFeeSummary() {
                 <tbody>
         `;
         
-        summary.feeRecords.forEach(record => {
+        allFeeRecords.forEach(record => {
             const statusColor = record.status === 'Paid' ? 'success' : record.status === 'Part Payment' ? 'warning' : 'danger';
             html += `
                 <tr>
-                    <td>${record.studentName}</td>
+                    <td><strong>${record.studentName}</strong></td>
+                    ${!classId ? `<td>${record.classId}</td>` : ''}
+                    ${!term ? `<td>${record.term === 'firstTerm' ? '1st Term' : record.term === 'secondTerm' ? '2nd Term' : '3rd Term'}</td>` : ''}
                     <td>₦${record.totalFee.toLocaleString()}</td>
                     <td>₦${record.totalPaid.toLocaleString()}</td>
                     <td>₦${record.balance.toLocaleString()}</td>
