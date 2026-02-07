@@ -79,6 +79,48 @@ const filterUserSubjects = (user, subjects) => {
 };
 
 /**
+ * Check if user can manage fees (admin/bursar only)
+ */
+const canManageFees = (user) => {
+  return isAdmin(user);
+};
+
+/**
+ * Check if user can view fee structure (admin/bursar only)
+ */
+const canViewFeeStructure = (user) => {
+  return isAdmin(user);
+};
+
+/**
+ * Check if user can create/edit fee structure (admin/bursar only)
+ */
+const canEditFeeStructure = (user) => {
+  return isAdmin(user);
+};
+
+/**
+ * Check if user can record payments (admin/bursar only)
+ */
+const canRecordPayments = (user) => {
+  return isAdmin(user);
+};
+
+/**
+ * Check if user can view student fees (admin/bursar only)
+ */
+const canViewStudentFees = (user) => {
+  return isAdmin(user);
+};
+
+/**
+ * Check if user can generate receipts (admin/bursar only)
+ */
+const canGenerateReceipts = (user) => {
+  return isAdmin(user);
+};
+
+/**
  * Verify user has required permission
  */
 const verifyPermission = (user, requiredPermission) => {
@@ -94,7 +136,16 @@ const verifyPermission = (user, requiredPermission) => {
     view_profile: (u) => true,
     edit_own_profile: (u) => true,
     edit_other_profiles: (u) => isAdmin(u),
-    view_fees: (u) => isAdmin(u),
+    // Fee management permissions (admin only)
+    manage_fees: (u) => canManageFees(u),
+    view_fee_structure: (u) => canViewFeeStructure(u),
+    edit_fee_structure: (u) => canEditFeeStructure(u),
+    record_payments: (u) => canRecordPayments(u),
+    view_student_fees: (u) => canViewStudentFees(u),
+    generate_receipts: (u) => canGenerateReceipts(u),
+    view_class_fee_summary: (u) => isAdmin(u),
+    view_school_fee_statistics: (u) => isAdmin(u),
+    // End fee permissions
     view_salaries: (u) => isAdmin(u),
     access_settings: (u) => isAdmin(u),
   };

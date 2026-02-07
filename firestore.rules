@@ -40,6 +40,48 @@ service cloud.firestore {
     match /students/{document=**} {
       allow read: if request.auth != null;
       allow write: if isAdmin(request.auth.uid);
+      
+      // ==================== STUDENT FEES SUBCOLLECTION ====================
+      match /fees/{term} {
+        // Only admins can read/write fees
+        allow read: if isAdmin(request.auth.uid);
+        allow write: if isAdmin(request.auth.uid);
+        
+        // ==================== PAYMENTS SUBCOLLECTION ====================
+        match /payments/{paymentId} {
+          // Only admins can read/write payments
+          allow read: if isAdmin(request.auth.uid);
+          allow write: if isAdmin(request.auth.uid);
+          allow delete: if isAdmin(request.auth.uid);
+        }
+      }
+    }
+    
+    // ==================== FEES COLLECTION ====================
+    match /fees/{classId} {
+      // Only admins can read/write fee structures
+      allow read: if isAdmin(request.auth.uid);
+      allow write: if isAdmin(request.auth.uid);
+      
+      // New structure with sessions
+      match /sessions/{session} {
+        // Only admins can read/write sessions
+        allow read: if isAdmin(request.auth.uid);
+        allow write: if isAdmin(request.auth.uid);
+        
+        match /terms/{term} {
+          // Only admins can read/write fee terms
+          allow read: if isAdmin(request.auth.uid);
+          allow write: if isAdmin(request.auth.uid);
+        }
+      }
+      
+      // Keep old structure for backward compatibility (if any)
+      match /terms/{term} {
+        // Only admins can read/write fee terms
+        allow read: if isAdmin(request.auth.uid);
+        allow write: if isAdmin(request.auth.uid);
+      }
     }
     
     // ==================== ATTENDANCE COLLECTION ====================
@@ -85,6 +127,15 @@ service cloud.firestore {
     match /announcementReads/{document=**} {
       allow read, write: if request.auth.uid == resource.data.userId;
       allow create: if request.auth.uid == request.resource.data.userId;
+    }
+    
+    // ==================== STUDENT SUBJECTS COLLECTION ====================
+    match /studentSubjects/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin(request.auth.uid) || 
+                      // Teachers assigned to the class can write
+                      (get(/databases/$(database)/documents/teachers/$(request.auth.uid)).data.role == 'teacher' &&
+                       request.resource.data.classId in get(/databases/$(database)/documents/teachers/$(request.auth.uid)).data.assignedClasses);
     }
     
     // Default deny

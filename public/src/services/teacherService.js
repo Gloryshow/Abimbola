@@ -96,10 +96,17 @@ const getTeacherSubjects = async (user, classId) => {
     
     if (assignedSubjects.length === 0) return [];
 
-    // Return subjects as objects
+    // Try to fetch full subject info from Firestore
+    const subjectsSnapshot = await window.db.collection('subjects').get();
+    const subjectsMap = {};
+    subjectsSnapshot.docs.forEach(doc => {
+      subjectsMap[doc.id] = doc.data().name || doc.id;
+    });
+
+    // Return subjects as objects with proper names
     return assignedSubjects.map((subjectId) => ({
       id: subjectId,
-      name: subjectId, // You can enhance this to fetch from a subjects collection
+      name: subjectsMap[subjectId] || subjectId, // Use full name or ID as fallback
     }));
   } catch (error) {
     throw new Error(`Failed to fetch teacher subjects: ${error.message}`);

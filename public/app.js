@@ -528,6 +528,13 @@ async function loadDashboard() {
             document.getElementById('teacherName').textContent = `Welcome, ${currentUser.name}`;
         }
         
+        // Populate admin name in payment recording form (auto-filled and read-only)
+        const paymentReceivedByField = document.getElementById('paymentReceivedBy');
+        if (paymentReceivedByField && currentUser) {
+            const adminName = currentUser.name || currentUser.displayName || 'Unknown';
+            paymentReceivedByField.value = adminName;
+        }
+        
         // Show admin panel button only for admins
         const adminBtn = document.getElementById('adminPanelBtn');
         const adminBtnMobile = document.getElementById('adminPanelBtnMobile');
@@ -1530,10 +1537,21 @@ function showTeachersTab(e) {
     e.target.classList.add('active');
 }
 
+function showTeachersTab(e) {
+    e.preventDefault();
+    document.getElementById('teachersTab').classList.add('show', 'active');
+    document.getElementById('studentsTab').classList.remove('show', 'active');
+    document.getElementById('feesTab').classList.remove('show', 'active');
+    // Update active tab styling
+    document.querySelectorAll('#adminTabs .nav-link').forEach(link => link.classList.remove('active'));
+    e.target.classList.add('active');
+}
+
 function showStudentsTab(e) {
     e.preventDefault();
     document.getElementById('studentsTab').classList.add('show', 'active');
     document.getElementById('teachersTab').classList.remove('show', 'active');
+    document.getElementById('feesTab').classList.remove('show', 'active');
     // Update active tab styling
     document.querySelectorAll('#adminTabs .nav-link').forEach(link => link.classList.remove('active'));
     e.target.classList.add('active');
@@ -1546,6 +1564,22 @@ function showStudentsTab(e) {
     
     // Load students when tab is shown
     loadStudentsList();
+}
+
+function showFeesTab(e) {
+    e.preventDefault();
+    document.getElementById('feesTab').classList.add('show', 'active');
+    document.getElementById('teachersTab').classList.remove('show', 'active');
+    document.getElementById('studentsTab').classList.remove('show', 'active');
+    // Update active tab styling
+    document.querySelectorAll('#adminTabs .nav-link').forEach(link => link.classList.remove('active'));
+    e.target.classList.add('active');
+    
+    // Initialize fees tab on first load
+    if (!document.getElementById('feesTab').hasAttribute('data-initialized')) {
+        initializeFeesTab();
+        document.getElementById('feesTab').setAttribute('data-initialized', 'true');
+    }
 }
 
 // ============================================
@@ -2124,7 +2158,730 @@ async function loadAttendanceChart() {
     }
 }
 
-// Expose functions globally
+// ============================================
+// FEE MANAGEMENT FUNCTIONS
+// ============================================
+
+/**
+ * Initialize fees tab with class data
+ */
+async function initializeFeesTab() {
+    try {
+        // Load classes for fee structure form
+        const classes = await window.getAllClasses(currentUser);
+        const classSelects = [
+            'feeStructureClass',
+            'summaryClass',
+            'paymentStudentClass',
+            'detailsStudentClass'
+        ];
+        
+        classSelects.forEach(selectId => {
+            const select = document.getElementById(selectId);
+            if (select) {
+                select.innerHTML = '<option value="">-- Select Class --</option>';
+                classes.forEach(cls => {
+                    const option = document.createElement('option');
+                    option.value = cls.id;
+                    option.textContent = cls.name;
+                    select.appendChild(option);
+                });
+            }
+        });
+        
+        // Set today's date for payment date field
+        const paymentDateField = document.getElementById('paymentDate');
+        if (paymentDateField) {
+            paymentDateField.value = new Date().toISOString().split('T')[0];
+        }
+        
+        // Load saved form data from localStorage
+        loadFeeFormFromLocalStorage();
+        
+    } catch (error) {
+        console.error('Error initializing fees tab:', error);
+        alert('Failed to initialize fees tab: ' + error.message);
+    }
+}
+
+/**
+ * Add a new fee item row
+ */
+function addFeeItem() {
+    const container = document.getElementById('feeItemsContainer');
+    const rows = container.querySelectorAll('.fee-item-row');
+    const newIndex = rows.length;
+    
+    const newRow = document.createElement('div');
+    newRow.className = 'fee-item-row row mb-2';
+    newRow.setAttribute('data-fee-index', newIndex);
+    newRow.innerHTML = `
+        <div class="col-12 col-md-6 mb-2">
+            <input type="text" class="form-control fee-item-name" placeholder="Fee Type">
+        </div>
+        <div class="col-12 col-md-4 mb-2">
+            <input type="number" class="form-control fee-item-amount" placeholder="Amount" min="0" oninput="calculateTotalFee()">
+        </div>
+        <div class="col-12 col-md-2 mb-2">
+            <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeFeeItem(${newIndex})">Remove</button>
+        </div>
+    `;
+    
+    container.appendChild(newRow);
+    calculateTotalFee();
+}
+
+/**
+ * Remove a fee item row
+ */
+function removeFeeItem(index) {
+    const rows = document.querySelectorAll('.fee-item-row');
+    if (rows.length > 1) {
+        rows[index].remove();
+        calculateTotalFee();
+    } else {
+        alert('You must have at least one fee item');
+    }
+}
+
+/**
+ * Calculate total fee from all items
+ */
+function calculateTotalFee() {
+    const amounts = document.querySelectorAll('.fee-item-amount');
+    let total = 0;
+    
+    amounts.forEach(input => {
+        total += parseFloat(input.value) || 0;
+    });
+    
+    const displayElement = document.getElementById('totalFeeDisplay');
+    if (displayElement) {
+        displayElement.textContent = '₦' + total.toLocaleString();
+    }
+    
+    // Save to localStorage for persistence
+    saveFeeFormToLocalStorage();
+}
+
+/**
+ * Save fee form to localStorage
+ */
+function saveFeeFormToLocalStorage() {
+    const classId = document.getElementById('feeStructureClass').value;
+    const term = document.getElementById('feeStructureTerm').value;
+    const feeItems = [];
+    
+    document.querySelectorAll('.fee-item-row').forEach(row => {
+        const name = row.querySelector('.fee-item-name').value;
+        const amount = row.querySelector('.fee-item-amount').value;
+        if (name || amount) {
+            feeItems.push({ name, amount });
+        }
+    });
+    
+    const formData = { classId, term, feeItems };
+    localStorage.setItem('feeFormData', JSON.stringify(formData));
+}
+
+/**
+ * Load fee form from localStorage
+ */
+function loadFeeFormFromLocalStorage() {
+    const saved = localStorage.getItem('feeFormData');
+    if (!saved) return;
+    
+    try {
+        const formData = JSON.parse(saved);
+        
+        // Set class and term
+        const classSelect = document.getElementById('feeStructureClass');
+        const termSelect = document.getElementById('feeStructureTerm');
+        
+        if (formData.classId && classSelect) {
+            classSelect.value = formData.classId;
+        }
+        if (formData.term && termSelect) {
+            termSelect.value = formData.term;
+        }
+        
+        // Restore fee items
+        if (formData.feeItems && formData.feeItems.length > 0) {
+            const container = document.getElementById('feeItemsContainer');
+            const existingRows = container.querySelectorAll('.fee-item-row');
+            
+            // Clear existing items (except the header row)
+            existingRows.forEach(row => row.remove());
+            
+            // Add restored items
+            formData.feeItems.forEach((item, index) => {
+                const newRow = document.createElement('div');
+                newRow.className = 'fee-item-row row mb-2';
+                newRow.setAttribute('data-fee-index', index);
+                newRow.innerHTML = `
+                    <div class="col-12 col-md-6 mb-2">
+                        <input type="text" class="form-control fee-item-name" placeholder="Fee Type" value="${item.name || ''}">
+                    </div>
+                    <div class="col-12 col-md-4 mb-2">
+                        <input type="number" class="form-control fee-item-amount" placeholder="Amount" min="0" value="${item.amount || ''}" oninput="calculateTotalFee()">
+                    </div>
+                    <div class="col-12 col-md-2 mb-2">
+                        <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeFeeItem(${index})">Remove</button>
+                    </div>
+                `;
+                container.appendChild(newRow);
+            });
+            
+            calculateTotalFee();
+        }
+    } catch (error) {
+        console.error('Error loading fee form from localStorage:', error);
+    }
+}
+
+/**
+ * Handle creating/updating fee structure
+ */
+async function handleCreateFeeStructure(event) {
+    event.preventDefault();
+    
+    try {
+        // Check permissions
+        if (!canManageFees(currentUser)) {
+            alert('You do not have permission to manage fees');
+            return;
+        }
+        
+        const classId = document.getElementById('feeStructureClass').value;
+        const term = document.getElementById('feeStructureTerm').value;
+        const session = document.getElementById('feeStructureSession').value;
+        const messageEl = document.getElementById('feeStructureMessage');
+        
+        if (!classId || !term || !session) {
+            showMessage(messageEl, 'Please select session, class and term', 'danger');
+            return;
+        }
+        
+        // Collect fee items
+        const feeStructure = {};
+        const feeItems = document.querySelectorAll('.fee-item-row');
+        
+        feeItems.forEach(row => {
+            const nameInput = row.querySelector('.fee-item-name');
+            const amountInput = row.querySelector('.fee-item-amount');
+            
+            const name = nameInput.value.trim();
+            const amount = parseFloat(amountInput.value) || 0;
+            
+            if (name && amount > 0) {
+                feeStructure[name.toLowerCase().replace(/\s+/g, '_')] = amount;
+            }
+        });
+        
+        if (Object.keys(feeStructure).length === 0) {
+            showMessage(messageEl, 'Please add at least one fee item', 'danger');
+            return;
+        }
+        
+        showMessage(messageEl, 'Creating fee structure...', 'info');
+        
+        // Prepare admin info
+        const adminInfo = {
+            uid: currentUser.uid,
+            name: currentUser.displayName || currentUser.email
+        };
+        
+        // Create fee structure with session and admin tracking
+        await createFeeStructure(classId, term, session, feeStructure, adminInfo);
+        
+        // Bulk initialize student fees
+        const totalFee = Object.values(feeStructure).reduce((sum, fee) => sum + fee, 0);
+        const result = await bulkInitializeStudentFees(classId, term, totalFee, session);
+        
+        showMessage(messageEl, `✅ Fee structure created! Initialized ${result.studentsInitialized} student records.`, 'success');
+        
+        // Don't reset form - keep the fee items for reference or further editing
+        // Just clear the class/term selections for next entry
+        // document.getElementById('feeStructureForm').reset();
+        // calculateTotalFee();
+        
+    } catch (error) {
+        console.error('Error creating fee structure:', error);
+        showMessage(document.getElementById('feeStructureMessage'), error.message, 'danger');
+    }
+}
+
+/**
+ * Load existing fee structure
+ */
+async function loadExistingFeeStructure() {
+    try {
+        const classId = document.getElementById('feeStructureClass').value;
+        const term = document.getElementById('feeStructureTerm').value;
+        const session = document.getElementById('feeStructureSession').value;
+        
+        if (!classId || !term || !session) {
+            alert('Please select class, term, and session first');
+            return;
+        }
+        
+        const feeStructure = await getFeeStructure(classId, term, session);
+        
+        if (!feeStructure) {
+            alert('No existing fee structure found for this class and term');
+            return;
+        }
+        
+        // Populate session field if available
+        if (feeStructure.session) {
+            document.getElementById('feeStructureSession').value = feeStructure.session;
+        }
+        
+        // Clear current items
+        const container = document.getElementById('feeItemsContainer');
+        const rows = container.querySelectorAll('.fee-item-row');
+        rows.forEach((row, index) => {
+            if (index > 0) row.remove();
+        });
+        
+        // Populate with existing data
+        let index = 0;
+        for (const [key, value] of Object.entries(feeStructure)) {
+            if (key !== 'totalFee' && key !== 'createdAt' && key !== 'updatedAt' && 
+                key !== 'session' && key !== 'createdBy' && key !== 'createdByName' &&
+                key !== 'classId' && key !== 'term') {
+                const feeType = key.split('_').join(' ');
+                const row = document.querySelectorAll('.fee-item-row')[index] || null;
+                
+                if (row) {
+                    row.querySelector('.fee-item-name').value = feeType;
+                    row.querySelector('.fee-item-amount').value = value;
+                } else {
+                    document.getElementById('feeItemsContainer').insertAdjacentHTML('beforeend', `
+                        <div class="fee-item-row row mb-2" data-fee-index="${index}">
+                            <div class="col-12 col-md-6 mb-2">
+                                <input type="text" class="form-control fee-item-name" placeholder="Fee Type" value="${feeType}">
+                            </div>
+                            <div class="col-12 col-md-4 mb-2">
+                                <input type="number" class="form-control fee-item-amount" placeholder="Amount" value="${value}" min="0" oninput="calculateTotalFee()">
+                            </div>
+                            <div class="col-12 col-md-2 mb-2">
+                                <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeFeeItem(${index})">Remove</button>
+                            </div>
+                        </div>
+                    `);
+                }
+                index++;
+            }
+        }
+        
+        calculateTotalFee();
+        
+        // Show audit info
+        let auditInfo = '';
+        if (feeStructure.createdByName) {
+            let createdDate = 'N/A';
+            if (feeStructure.createdAt) {
+                try {
+                    // Handle Firestore Timestamp objects
+                    if (feeStructure.createdAt.toDate) {
+                        createdDate = feeStructure.createdAt.toDate().toLocaleString();
+                    } 
+                    // Handle regular timestamps (milliseconds)
+                    else if (typeof feeStructure.createdAt === 'number') {
+                        createdDate = new Date(feeStructure.createdAt).toLocaleString();
+                    }
+                    // Handle Date objects
+                    else if (feeStructure.createdAt instanceof Date) {
+                        createdDate = feeStructure.createdAt.toLocaleString();
+                    }
+                } catch (e) {
+                    createdDate = 'Unable to parse date';
+                }
+            }
+            auditInfo = `✓ Created by ${feeStructure.createdByName} on ${createdDate}`;
+        }
+        
+        alert(`Fee structure loaded successfully!\n${auditInfo}`);
+        
+    } catch (error) {
+        console.error('Error loading fee structure:', error);
+        alert('Failed to load fee structure: ' + error.message);
+    }
+}
+
+/**
+ * Load class fee summary
+ */
+async function loadClassFeeSummary() {
+    try {
+        const classId = document.getElementById('summaryClass').value;
+        const term = document.getElementById('summaryTerm').value;
+        const session = document.getElementById('summarySession').value;
+        
+        if (!classId || !term || !session) {
+            const statsDiv = document.getElementById('feeSummaryStats');
+            if (statsDiv) {
+                statsDiv.innerHTML = '<p class="text-muted">Select a class, term, and session to view summary</p>';
+            }
+            return;
+        }
+        
+        const summary = await getClassFeeSummary(classId, term, session);
+        
+        // Update stats - check if elements exist
+        const summaryStudents = document.getElementById('summaryStudents');
+        const summaryExpected = document.getElementById('summaryExpected');
+        const summaryCollected = document.getElementById('summaryCollected');
+        const summaryOutstanding = document.getElementById('summaryOutstanding');
+        
+        if (summaryStudents) summaryStudents.textContent = summary.totalStudents;
+        if (summaryExpected) summaryExpected.textContent = '₦' + summary.totalExpected.toLocaleString();
+        if (summaryCollected) summaryCollected.textContent = '₦' + summary.totalCollected.toLocaleString();
+        if (summaryOutstanding) summaryOutstanding.textContent = '₦' + summary.totalOutstanding.toLocaleString();
+        
+        // Generate details table
+        let html = `
+            <table class="table table-striped table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Student Name</th>
+                        <th>Total Fee</th>
+                        <th>Paid</th>
+                        <th>Balance</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        summary.feeRecords.forEach(record => {
+            const statusColor = record.status === 'Paid' ? 'success' : record.status === 'Part Payment' ? 'warning' : 'danger';
+            html += `
+                <tr>
+                    <td>${record.studentName}</td>
+                    <td>₦${record.totalFee.toLocaleString()}</td>
+                    <td>₦${record.totalPaid.toLocaleString()}</td>
+                    <td>₦${record.balance.toLocaleString()}</td>
+                    <td><span class="badge bg-${statusColor}">${record.status}</span></td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                </tbody>
+            </table>
+        `;
+        
+        const detailsDiv = document.getElementById('feeSummaryDetails');
+        if (detailsDiv) {
+            detailsDiv.innerHTML = html;
+        }
+        
+    } catch (error) {
+        console.error('Error loading fee summary:', error);
+        const detailsDiv = document.getElementById('feeSummaryDetails');
+        if (detailsDiv) {
+            detailsDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        }
+    }
+}
+
+/**
+ * Load students for payment recording
+ */
+async function loadStudentsForPayment() {
+    try {
+        const classId = document.getElementById('paymentStudentClass').value;
+        const select = document.getElementById('paymentStudent');
+        select.innerHTML = '<option value="">-- Select Student --</option>';
+        
+        if (!classId) return;
+        
+        const students = await getStudentsByClass(classId);
+        
+        students.forEach(student => {
+            const option = document.createElement('option');
+            option.value = student.id;
+            option.textContent = student.name;
+            select.appendChild(option);
+        });
+        
+    } catch (error) {
+        console.error('Error loading students:', error);
+        alert('Failed to load students: ' + error.message);
+    }
+}
+
+/**
+ * Load student fee status
+ */
+async function loadStudentFeeStatus() {
+    try {
+        const studentId = document.getElementById('paymentStudent').value;
+        const term = document.getElementById('paymentTerm').value;
+        const statusCard = document.getElementById('studentFeeStatusCard');
+        
+        if (!studentId || !term) {
+            alert('Please select student and term');
+            return;
+        }
+        
+        const feeRecord = await getStudentFeeRecord(studentId, term);
+        
+        if (!feeRecord) {
+            alert('No fee record found for this student in the selected term');
+            return;
+        }
+        
+        // Update status card
+        document.getElementById('feeStatusTotal').textContent = '₦' + feeRecord.totalFee.toLocaleString();
+        document.getElementById('feeStatusPaid').textContent = '₦' + feeRecord.totalPaid.toLocaleString();
+        document.getElementById('feeStatusBalance').textContent = '₦' + feeRecord.balance.toLocaleString();
+        document.getElementById('feeStatusStatus').textContent = feeRecord.status;
+        statusCard.style.display = '';
+        
+    } catch (error) {
+        console.error('Error loading fee status:', error);
+        alert('Failed to load fee status: ' + error.message);
+    }
+}
+
+/**
+ * Handle recording a payment
+ */
+async function handleRecordPayment(event) {
+    event.preventDefault();
+    
+    try {
+        // Check permissions
+        if (!canRecordPayments(currentUser)) {
+            alert('You do not have permission to record payments');
+            return;
+        }
+        
+        const studentId = document.getElementById('paymentStudent').value;
+        const term = document.getElementById('paymentTerm').value;
+        const amount = parseFloat(document.getElementById('paymentAmount').value);
+        const date = document.getElementById('paymentDate').value;
+        const method = document.getElementById('paymentMethod').value;
+        const reference = document.getElementById('paymentReference').value;
+        const messageEl = document.getElementById('recordPaymentMessage');
+        
+        // Always use the current admin's name - no manual entry allowed (name only, no email)
+        const adminName = currentUser.displayName || currentUser.name || 'Unknown';
+        
+        if (!studentId || !term || !amount || !date || !method) {
+            showMessage(messageEl, 'Please fill in all required fields', 'danger');
+            return;
+        }
+        
+        if (amount <= 0) {
+            showMessage(messageEl, 'Amount must be greater than 0', 'danger');
+            return;
+        }
+        
+        showMessage(messageEl, 'Recording payment...', 'info');
+        
+        // Prepare admin/bursar info (name only, no email for security)
+        const adminInfo = {
+            uid: currentUser.uid,
+            name: adminName
+        };
+        
+        const payment = await recordPayment(studentId, term, {
+            amount,
+            date,
+            method,
+            receivedBy: adminName,
+            reference
+        }, adminInfo);
+        
+        showMessage(messageEl, '✅ Payment recorded successfully!', 'success');
+        
+        // Reset form
+        document.getElementById('recordPaymentForm').reset();
+        document.getElementById('studentFeeStatusCard').style.display = 'none';
+        document.getElementById('paymentDate').value = new Date().toISOString().split('T')[0];
+        
+    } catch (error) {
+        console.error('Error recording payment:', error);
+        showMessage(document.getElementById('recordPaymentMessage'), error.message, 'danger');
+    }
+}
+
+/**
+ * Load students for fee details view
+ */
+async function loadStudentsForDetails() {
+    try {
+        const classId = document.getElementById('detailsStudentClass').value;
+        const select = document.getElementById('detailsStudent');
+        select.innerHTML = '<option value="">-- Select Student --</option>';
+        
+        if (!classId) return;
+        
+        const students = await getStudentsByClass(classId);
+        
+        students.forEach(student => {
+            const option = document.createElement('option');
+            option.value = student.id;
+            option.textContent = student.name;
+            select.appendChild(option);
+        });
+        
+    } catch (error) {
+        console.error('Error loading students:', error);
+        alert('Failed to load students: ' + error.message);
+    }
+}
+
+/**
+ * Load and display student fee details with payment history
+ */
+async function loadStudentFeeDetails() {
+    try {
+        const studentId = document.getElementById('detailsStudent').value;
+        const container = document.getElementById('studentFeeDetailsContainer');
+        
+        if (!studentId) {
+            container.innerHTML = '<p class="text-muted">Select a student to view fee details and payment history</p>';
+            return;
+        }
+        
+        // Get student info
+        const studentDoc = await window.db.collection('students').doc(studentId).get();
+        const student = studentDoc.data();
+        
+        // Get all fee records
+        const allFeeRecords = await getStudentAllFeeRecords(studentId);
+        
+        let html = '<div class="row">';
+        
+        for (const [term, feeRecord] of Object.entries(allFeeRecords)) {
+            // Get payments for this term
+            const payments = await getStudentPayments(studentId, term);
+            
+            const statusColor = feeRecord.status === 'Paid' ? 'success' : feeRecord.status === 'Part Payment' ? 'warning' : 'danger';
+            
+            html += `
+                <div class="col-12 mb-4">
+                    <div class="card">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">${term.replace(/([A-Z])/g, ' $1').trim()} - <span class="badge bg-${statusColor}">${feeRecord.status}</span></h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-12 col-md-3 text-center">
+                                    <h6 class="text-muted">Total Fee</h6>
+                                    <h5>₦${feeRecord.totalFee.toLocaleString()}</h5>
+                                </div>
+                                <div class="col-12 col-md-3 text-center">
+                                    <h6 class="text-muted">Paid</h6>
+                                    <h5 style="color: #28a745;">₦${feeRecord.totalPaid.toLocaleString()}</h5>
+                                </div>
+                                <div class="col-12 col-md-3 text-center">
+                                    <h6 class="text-muted">Balance</h6>
+                                    <h5 style="color: #dc3545;">₦${feeRecord.balance.toLocaleString()}</h5>
+                                </div>
+                                <div class="col-12 col-md-3 text-center">
+                                    <h6 class="text-muted">Collection %</h6>
+                                    <h5>${feeRecord.totalFee > 0 ? ((feeRecord.totalPaid / feeRecord.totalFee) * 100).toFixed(0) : 0}%</h5>
+                                </div>
+                            </div>
+
+                            <hr>
+
+                            <h6 class="mb-3">Payment History</h6>
+                            ${payments.length > 0 ? `
+                                <table class="table table-sm table-striped">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Amount</th>
+                                            <th>Method</th>
+                                            <th>Received By</th>
+                                            <th>Recorded By</th>
+                                            <th>Time</th>
+                                            <th>Reference</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${payments.map(payment => {
+                                            let recordedTime = 'N/A';
+                                            if (payment.recordedAt) {
+                                                try {
+                                                    // Handle Firestore Timestamp objects
+                                                    if (payment.recordedAt.toDate) {
+                                                        recordedTime = payment.recordedAt.toDate().toLocaleString();
+                                                    } 
+                                                    // Handle regular timestamps (milliseconds)
+                                                    else if (typeof payment.recordedAt === 'number') {
+                                                        recordedTime = new Date(payment.recordedAt).toLocaleString();
+                                                    }
+                                                    // Handle Date objects
+                                                    else if (payment.recordedAt instanceof Date) {
+                                                        recordedTime = payment.recordedAt.toLocaleString();
+                                                    }
+                                                } catch (e) {
+                                                    recordedTime = 'Invalid Date';
+                                                }
+                                            }
+                                            return `
+                                            <tr>
+                                                <td>${payment.date}</td>
+                                                <td>₦${payment.amount.toLocaleString()}</td>
+                                                <td>${payment.method}</td>
+                                                <td><small>${payment.receivedBy || 'Unknown'}</small></td>
+                                                <td><small>${payment.recordedByName || 'Unknown'}</small></td>
+                                                <td><small>${recordedTime}</small></td>
+                                                <td>${payment.reference || '--'}</td>
+                                            </tr>
+                                        `}).join('')}
+                                    </tbody>
+                                </table>
+                            ` : `<p class="text-muted">No payments recorded yet</p>`}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        html += '</div>';
+        
+        if (Object.keys(allFeeRecords).length === 0) {
+            html = '<p class="text-muted">No fee records found for this student</p>';
+        }
+        
+        container.innerHTML = html;
+        
+    } catch (error) {
+        console.error('Error loading fee details:', error);
+        document.getElementById('studentFeeDetailsContainer').innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+    }
+}
+
+/**
+ * Delete a payment record
+ */
+async function deletePaymentRecord(studentId, term, paymentId) {
+    if (confirm('Are you sure you want to delete this payment? This will recalculate the fee balance.')) {
+        try {
+            await deletePayment(studentId, term, paymentId);
+            loadStudentFeeDetails();
+            alert('Payment deleted successfully!');
+        } catch (error) {
+            alert('Failed to delete payment: ' + error.message);
+        }
+    }
+}
+
+// Helper function to show messages
+function showMessage(element, message, type) {
+    if (!element) return;
+    element.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+}
+
 window.handleLogin = handleLogin;
 window.handleSignup = handleSignup;
 window.handleLogout = handleLogout;
@@ -2141,6 +2898,7 @@ window.deleteStudentRecord = deleteStudentRecord;
 window.editStudent = editStudent;
 window.showTeachersTab = showTeachersTab;
 window.showStudentsTab = showStudentsTab;
+window.showFeesTab = showFeesTab;
 window.postAnnouncement = postAnnouncement;
 window.loadAnnouncementsTab = loadAnnouncementsTab;
 window.openEditAnnouncementModal = openEditAnnouncementModal;
@@ -2149,3 +2907,17 @@ window.handleDeleteAnnouncement = handleDeleteAnnouncement;
 window.deleteAnnouncementConfirm = deleteAnnouncementConfirm;
 window.loadAttendanceChart = loadAttendanceChart;
 window.loadOverallAttendanceChart = loadOverallAttendanceChart;
+// Fee management functions
+window.initializeFeesTab = initializeFeesTab;
+window.addFeeItem = addFeeItem;
+window.removeFeeItem = removeFeeItem;
+window.calculateTotalFee = calculateTotalFee;
+window.handleCreateFeeStructure = handleCreateFeeStructure;
+window.loadExistingFeeStructure = loadExistingFeeStructure;
+window.loadClassFeeSummary = loadClassFeeSummary;
+window.loadStudentsForPayment = loadStudentsForPayment;
+window.loadStudentFeeStatus = loadStudentFeeStatus;
+window.handleRecordPayment = handleRecordPayment;
+window.loadStudentsForDetails = loadStudentsForDetails;
+window.loadStudentFeeDetails = loadStudentFeeDetails;
+window.deletePaymentRecord = deletePaymentRecord;

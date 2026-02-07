@@ -229,6 +229,9 @@
                 <li class="nav-item">
                     <a class="nav-link" href="#" onclick="showStudentsTab(event)">Students</a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="showFeesTab(event)">💰 Fees</a>
+                </li>
             </ul>
 
             <!-- Teachers Tab -->
@@ -352,10 +355,316 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Fees Tab -->
+            <div id="feesTab" class="tab-pane fade" role="tabpanel">
+                <!-- Fee Structure Section -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-success text-white">
+                                <h5 class="mb-0">💰 Fee Structure Setup</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="feeStructureForm" onsubmit="handleCreateFeeStructure(event)">
+                                    <div class="row">
+                                        <div class="col-12 col-md-3 mb-3">
+                                            <label class="form-label">Academic Session *</label>
+                                            <input type="text" id="feeStructureSession" class="form-control" placeholder="e.g., 2024/2025" required>
+                                        </div>
+                                        <div class="col-12 col-md-3 mb-3">
+                                            <label class="form-label">Select Class *</label>
+                                            <select id="feeStructureClass" class="form-control" required>
+                                                <option value="">-- Select Class --</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-12 col-md-3 mb-3">
+                                            <label class="form-label">Select Term *</label>
+                                            <select id="feeStructureTerm" class="form-control" required>
+                                                <option value="">-- Select Term --</option>
+                                                <option value="firstTerm">First Term</option>
+                                                <option value="secondTerm">Second Term</option>
+                                                <option value="thirdTerm">Third Term</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-12 col-md-4 mb-3">
+                                            <label class="form-label">&nbsp;</label>
+                                            <button type="button" class="btn btn-outline-secondary w-100" onclick="loadExistingFeeStructure()">Load Existing</button>
+                                        </div>
+                                    </div>
+
+                                    <div id="feeItemsContainer">
+                                        <div class="row mb-3">
+                                            <div class="col-12">
+                                                <h6>Fee Items</h6>
+                                            </div>
+                                        </div>
+                                        <div class="fee-item-row row mb-2" data-fee-index="0">
+                                            <div class="col-12 col-md-6 mb-2">
+                                                <input type="text" class="form-control fee-item-name" placeholder="Fee Type (e.g., Tuition)" value="Tuition">
+                                            </div>
+                                            <div class="col-12 col-md-4 mb-2">
+                                                <input type="number" class="form-control fee-item-amount" placeholder="Amount" value="45000" min="0" oninput="calculateTotalFee()">
+                                            </div>
+                                            <div class="col-12 col-md-2 mb-2">
+                                                <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeFeeItem(0)">Remove</button>
+                                            </div>
+                                        </div>
+                                        <div class="fee-item-row row mb-2" data-fee-index="1">
+                                            <div class="col-12 col-md-6 mb-2">
+                                                <input type="text" class="form-control fee-item-name" placeholder="Fee Type (e.g., Development)" value="Development">
+                                            </div>
+                                            <div class="col-12 col-md-4 mb-2">
+                                                <input type="number" class="form-control fee-item-amount" placeholder="Amount" value="5000" min="0" oninput="calculateTotalFee()">
+                                            </div>
+                                            <div class="col-12 col-md-2 mb-2">
+                                                <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeFeeItem(1)">Remove</button>
+                                            </div>
+                                        </div>
+                                        <div class="fee-item-row row mb-2" data-fee-index="2">
+                                            <div class="col-12 col-md-6 mb-2">
+                                                <input type="text" class="form-control fee-item-name" placeholder="Fee Type (e.g., Exam)" value="Exam">
+                                            </div>
+                                            <div class="col-12 col-md-4 mb-2">
+                                                <input type="number" class="form-control fee-item-amount" placeholder="Amount" value="3000" min="0" oninput="calculateTotalFee()">
+                                            </div>
+                                            <div class="col-12 col-md-2 mb-2">
+                                                <button type="button" class="btn btn-danger btn-sm w-100" onclick="removeFeeItem(2)">Remove</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3 mt-3">
+                                        <div class="col-12">
+                                            <button type="button" class="btn btn-outline-primary" onclick="addFeeItem()">+ Add Fee Item</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3 p-3 bg-light rounded">
+                                        <div class="col-12">
+                                            <h6 class="mb-0">Total Fee: <span id="totalFeeDisplay" class="text-success">₦53,000</span></h6>
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <button type="submit" class="btn btn-success">Save & Initialize Student Fees</button>
+                                            <button type="reset" class="btn btn-secondary">Reset</button>
+                                            <div id="feeStructureMessage" class="mt-2"></div>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Class Fee Summary Dashboard -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-info text-white">
+                                <h5 class="mb-0">📊 Class Fee Summary</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row mb-3">
+                                    <div class="col-12 col-md-3 mb-2">
+                                        <label class="form-label">Academic Session</label>
+                                        <input type="text" id="summarySession" class="form-control" placeholder="e.g., 2024/2025" onchange="loadClassFeeSummary()">
+                                    </div>
+                                    <div class="col-12 col-md-3 mb-2">
+                                        <label class="form-label">Select Class</label>
+                                        <select id="summaryClass" class="form-control" onchange="loadClassFeeSummary()">
+                                            <option value="">-- Select Class --</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-12 col-md-3 mb-2">
+                                        <label class="form-label">Select Term</label>
+                                        <select id="summaryTerm" class="form-control" onchange="loadClassFeeSummary()">
+                                            <option value="">-- Select Term --</option>
+                                            <option value="firstTerm">First Term</option>
+                                            <option value="secondTerm">Second Term</option>
+                                            <option value="thirdTerm">Third Term</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div id="feeSummaryStats" class="row mb-4">
+                                    <div class="col-12 col-md-3 mb-3">
+                                        <div class="stat-card border-start border-5" style="border-color: #667eea !important;">
+                                            <h6 class="text-muted mb-2">Total Students</h6>
+                                            <h3 id="summaryStudents">0</h3>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-3 mb-3">
+                                        <div class="stat-card border-start border-5" style="border-color: #17a2b8 !important;">
+                                            <h6 class="text-muted mb-2">Expected Fees</h6>
+                                            <h3 id="summaryExpected" style="color: #17a2b8;">₦0</h3>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-3 mb-3">
+                                        <div class="stat-card border-start border-5" style="border-color: #28a745 !important;">
+                                            <h6 class="text-muted mb-2">Collected</h6>
+                                            <h3 id="summaryCollected" style="color: #28a745;">₦0</h3>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-md-3 mb-3">
+                                        <div class="stat-card border-start border-5" style="border-color: #dc3545 !important;">
+                                            <h6 class="text-muted mb-2">Outstanding</h6>
+                                            <h3 id="summaryOutstanding" style="color: #dc3545;">₦0</h3>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="feeSummaryDetails" style="overflow-x: auto;">
+                                    <p class="text-muted">Select a class and term to view details</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Record Payment Section -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0">💵 Record Student Payment</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="recordPaymentForm" onsubmit="handleRecordPayment(event)">
+                                    <div class="row">
+                                        <div class="col-12 col-md-3 mb-3">
+                                            <label class="form-label">Select Student *</label>
+                                            <select id="paymentStudentClass" class="form-control" onchange="loadStudentsForPayment()" required>
+                                                <option value="">-- Select Class --</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-12 col-md-3 mb-3">
+                                            <label class="form-label">Student Name *</label>
+                                            <select id="paymentStudent" class="form-control" required>
+                                                <option value="">-- Select Student --</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-12 col-md-3 mb-3">
+                                            <label class="form-label">Term *</label>
+                                            <select id="paymentTerm" class="form-control" required>
+                                                <option value="">-- Select Term --</option>
+                                                <option value="firstTerm">First Term</option>
+                                                <option value="secondTerm">Second Term</option>
+                                                <option value="thirdTerm">Third Term</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-12 col-md-3 mb-3">
+                                            <label class="form-label">&nbsp;</label>
+                                            <button type="button" class="btn btn-outline-info w-100" onclick="loadStudentFeeStatus()">View Fee Status</button>
+                                        </div>
+                                    </div>
+
+                                    <div id="studentFeeStatusCard" class="row mb-3" style="display: none;">
+                                        <div class="col-12">
+                                            <div class="card bg-light">
+                                                <div class="card-body">
+                                                    <div class="row">
+                                                        <div class="col-12 col-md-3 text-center">
+                                                            <h6 class="text-muted">Total Fee</h6>
+                                                            <h5 id="feeStatusTotal">₦0</h5>
+                                                        </div>
+                                                        <div class="col-12 col-md-3 text-center">
+                                                            <h6 class="text-muted">Paid</h6>
+                                                            <h5 id="feeStatusPaid" style="color: #28a745;">₦0</h5>
+                                                        </div>
+                                                        <div class="col-12 col-md-3 text-center">
+                                                            <h6 class="text-muted">Balance</h6>
+                                                            <h5 id="feeStatusBalance" style="color: #dc3545;">₦0</h5>
+                                                        </div>
+                                                        <div class="col-12 col-md-3 text-center">
+                                                            <h6 class="text-muted">Status</h6>
+                                                            <h5 id="feeStatusStatus">--</h5>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-12 col-md-4 mb-3">
+                                            <label class="form-label">Amount Paid (₦) *</label>
+                                            <input type="number" id="paymentAmount" class="form-control" placeholder="0" required min="0">
+                                        </div>
+                                        <div class="col-12 col-md-4 mb-3">
+                                            <label class="form-label">Payment Date *</label>
+                                            <input type="date" id="paymentDate" class="form-control" required>
+                                        </div>
+                                        <div class="col-12 col-md-4 mb-3">
+                                            <label class="form-label">Payment Method *</label>
+                                            <select id="paymentMethod" class="form-control" required>
+                                                <option value="">-- Select Method --</option>
+                                                <option value="Cash">Cash</option>
+                                                <option value="Transfer">Bank Transfer</option>
+                                                <option value="POS">POS</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-12 col-md-6 mb-3">
+                                            <label class="form-label">Received By (Admin Name)</label>
+                                            <input type="text" id="paymentReceivedBy" class="form-control" placeholder="Admin/Bursar name" readonly>
+                                        </div>
+                                        <div class="col-12 col-md-6 mb-3">
+                                            <label class="form-label">Reference (e.g., Transfer Reference)</label>
+                                            <input type="text" id="paymentReference" class="form-control" placeholder="Optional">
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <button type="submit" class="btn btn-primary">Record Payment</button>
+                                            <button type="reset" class="btn btn-secondary">Clear</button>
+                                            <div id="recordPaymentMessage" class="mt-2"></div>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Student Fee Details & Payment History -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-warning text-dark">
+                                <h5 class="mb-0">📋 Student Fee Details & Payment History</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row mb-3">
+                                    <div class="col-12 col-md-6 mb-2">
+                                        <label class="form-label">Select Student</label>
+                                        <select id="detailsStudentClass" class="form-control" onchange="loadStudentsForDetails()">
+                                            <option value="">-- Select Class --</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-12 col-md-6 mb-2">
+                                        <label class="form-label">Student Name</label>
+                                        <select id="detailsStudent" class="form-control" onchange="loadStudentFeeDetails()">
+                                            <option value="">-- Select Student --</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div id="studentFeeDetailsContainer" style="overflow-x: auto;">
+                                    <p class="text-muted">Select a student to view fee details and payment history</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-
-    <!-- Teacher Assignment Modal -->
     <div class="modal fade" id="assignTeacherModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -739,6 +1048,9 @@
                     <button class="nav-link" onclick="switchTab('results')">📝 Results</button>
                 </li>
                 <li class="nav-item">
+                    <button class="nav-link" onclick="switchTab('subjects')">📖 Subject Registration</button>
+                </li>
+                <li class="nav-item">
                     <button class="nav-link" onclick="switchTab('announcements')">📢 Announcements</button>
                 </li>
                 <li class="nav-item">
@@ -885,7 +1197,7 @@
                         <div class="row mb-3">
                             <div class="col-12 col-md-6">
                                 <label class="form-label">Select Class</label>
-                                <select id="viewResultsClass" class="form-control" onchange="loadViewResults()">
+                                <select id="viewResultsClass" class="form-control" onchange="loadViewResultsSubjects()">
                                     <option value="">-- Select Class --</option>
                                 </select>
                             </div>
@@ -908,6 +1220,100 @@
                             <!-- Results table will load here -->
                         </div>
                         <button onclick="printResults()" class="btn btn-primary mt-3" id="printBtn" style="display: none;">🖨️ Print Results</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Subject Registration Tab -->
+            <div id="subjectsTab" class="tab-content">
+                <!-- Register Students for Subjects Section -->
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">📖 Register Students for Subjects</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Select Class</label>
+                                <select id="subjectRegClass" class="form-control" onchange="loadClassSubjects()">
+                                    <option value="">-- Select Class --</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Select Subject</label>
+                                <select id="subjectRegSubject" class="form-control">
+                                    <option value="">-- Select Subject --</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <label class="form-label mb-0">Select Students</label>
+                                    <div>
+                                        <button onclick="selectAllStudents()" class="btn btn-sm btn-outline-primary">Select All</button>
+                                        <button onclick="deselectAllStudents()" class="btn btn-sm btn-outline-secondary">Deselect All</button>
+                                    </div>
+                                </div>
+                                <div id="studentCheckboxList" class="card p-3" style="max-height: 300px; overflow-y: auto;">
+                                    <p class="text-muted">Select a class first</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <label class="form-label">Notes (Optional)</label>
+                                <textarea id="subjectRegNotes" class="form-control" rows="2" placeholder="Add any notes about this registration"></textarea>
+                            </div>
+                        </div>
+                        <button onclick="handleBulkRegisterSubjects()" class="btn btn-success">Register Selected Students</button>
+                        <div id="subjectRegMessage" class="mt-2"></div>
+                    </div>
+                </div>
+
+                <!-- View Subject Registrations Section -->
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">👥 Subject Registrations</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Select Class</label>
+                                <select id="viewSubjectsClass" class="form-control" onchange="loadClassSubjectsList()">
+                                    <option value="">-- Select Class --</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Select Subject</label>
+                                <select id="viewSubjectsSubject" class="form-control" onchange="loadClassSubjectsList()">
+                                    <option value="">-- All Subjects --</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="subjectRegistrationsContent">
+                            <!-- Registrations table will load here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Class Subject Summary Section -->
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">📊 Subject Summary by Class</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Select Class</label>
+                                <select id="summaryClass" class="form-control" onchange="loadSubjectSummary()">
+                                    <option value="">-- Select Class --</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="subjectSummaryContent">
+                            <!-- Summary will load here -->
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1021,6 +1427,8 @@
     <script src="src/services/attendanceService.js"></script>
     <script src="src/services/resultsService.js"></script>
     <script src="src/services/announcementService.js"></script>
+    <script src="src/services/subjectRegistrationService.js"></script>
+    <script src="src/services/feeService.js"></script>
     <script src="src/utils/rbac.js"></script>
     
     <!-- App Script -->
