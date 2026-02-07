@@ -331,7 +331,7 @@ const getClassFeeSummary = async (classId, term, session) => {
     // Get all students in class
     const studentsSnapshot = await window.db
       .collection('students')
-      .where('classId', '==', classId)
+      .where('class', '==', classId)
       .get();
     
     let totalExpected = 0;
@@ -381,7 +381,7 @@ const getStudentsWithPendingFees = async (classId, term, session) => {
     
     const studentsSnapshot = await window.db
       .collection('students')
-      .where('classId', '==', classId)
+      .where('class', '==', classId)
       .get();
     
     const pendingStudents = [];
