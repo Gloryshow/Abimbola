@@ -565,14 +565,17 @@ async function loadDashboard() {
         const adminBtn = document.getElementById('adminPanelBtn');
         const adminBtnMobile = document.getElementById('adminPanelBtnMobile');
         const feeManagementTabBtn = document.getElementById('feeManagementTabBtn');
+        const feeManagementMobileBtn = document.getElementById('feeManagementMobileBtn');
         if (currentUser && currentUser.role === 'admin') {
             adminBtn.style.display = 'block';
             if (adminBtnMobile) adminBtnMobile.style.display = 'block';
             if (feeManagementTabBtn) feeManagementTabBtn.style.display = 'list-item';
+            if (feeManagementMobileBtn) feeManagementMobileBtn.style.display = 'block';
         } else {
             adminBtn.style.display = 'none';
             if (adminBtnMobile) adminBtnMobile.style.display = 'none';
             if (feeManagementTabBtn) feeManagementTabBtn.style.display = 'none';
+            if (feeManagementMobileBtn) feeManagementMobileBtn.style.display = 'none';
         }
         
         // Load statistics
@@ -2351,404 +2354,7 @@ async function loadAttendanceChart() {
 // SUBJECT REGISTRATION TAB
 // ============================================
 
-async function loadSubjectsTab() {
-    try {
-        const isAdminUser = currentUser.role === 'admin';
-        const assignedSubjectIds = currentUser.assignedSubjects || [];
-        
-        // Load classes - admins see all, teachers see only assigned
-        let classOptions = [];
-        
-        if (isAdminUser) {
-            // Admin: load all classes from students' registration data
-            const studentsSnapshot = await window.db.collection('students').get();
-            const classSet = new Set();
-            studentsSnapshot.docs.forEach(doc => {
-                if (doc.data().class) {
-                    classSet.add(doc.data().class);
-                }
-            });
-            classOptions = Array.from(classSet).sort();
-            console.log('Admin - All classes from students:', classOptions);
-        } else {
-            // Teacher: load only assigned classes
-            classOptions = currentUser.assignedClasses || [];
-            console.log('Teacher assigned classes:', classOptions);
-        }
-        
-        if (classOptions.length === 0) {
-            document.getElementById('studentCheckboxList').innerHTML = '<p class="text-danger">No classes available</p>';
-            document.getElementById('subjectRegistrationsContent').innerHTML = '<p class="text-danger">No classes available</p>';
-            document.getElementById('subjectSummaryContent').innerHTML = '<p class="text-danger">No classes available</p>';
-            return;
-        }
-        
-        // Load all subjects from teachers' assignedSubjects
-        const subjectsMap = new Map();
-        
-        if (isAdminUser) {
-            // Admin: get all unique subjects from all teachers
-            const teachersSnapshot = await window.db.collection('teachers').get();
-            teachersSnapshot.docs.forEach(doc => {
-                const assignedSubjects = doc.data().assignedSubjects || [];
-                assignedSubjects.forEach(subjectId => {
-                    if (!subjectsMap.has(subjectId)) {
-                        subjectsMap.set(subjectId, subjectId);
-                    }
-                });
-            });
-            console.log('Admin - All subjects from teachers:', Array.from(subjectsMap.keys()));
-        } else {
-            // Teacher: use their own assigned subjects
-            (assignedSubjectIds || []).forEach(subjectId => {
-                subjectsMap.set(subjectId, subjectId);
-            });
-            console.log('Teacher assigned subjects from info:', assignedSubjectIds);
-        }
-        
-        // For admins, show ALL subjects; for teachers, show only assigned subjects
-        const subjects = [];
-        
-        if (isAdminUser) {
-            // Admin: show all subjects from teachers info
-            subjectsMap.forEach((name, id) => {
-                subjects.push({
-                    id: id,
-                    name: name
-                });
-            });
-            console.log('Admin - All subjects:', subjects);
-        } else {
-            // Teacher: show only assigned subjects
-            assignedSubjectIds.forEach(subjectId => {
-                subjects.push({
-                    id: subjectId,
-                    name: subjectId
-                });
-            });
-            console.log('Teacher assigned subjects:', subjects);
-        }
-        
-        // Clear and populate class dropdowns
-        const classDropdowns = [
-            document.getElementById('subjectRegClass'),
-            document.getElementById('viewSubjectsClass'),
-            document.getElementById('feeSummaryClass')
-        ];
-        
-        classDropdowns.forEach(dropdown => {
-            if (dropdown) {
-                dropdown.innerHTML = '<option value="">-- Select Class --</option>';
-                classOptions.forEach(classId => {
-                    const option = document.createElement('option');
-                    option.value = classId;
-                    option.textContent = classId;
-                    dropdown.appendChild(option);
-                });
-            }
-        });
-        
-        // Populate subjects dropdown
-        const subjectDropdown = document.getElementById('subjectRegSubject');
-        if (subjectDropdown) {
-            subjectDropdown.innerHTML = '<option value="">-- Select Subject --</option>';
-            
-            if (subjects.length === 0) {
-                const option = document.createElement('option');
-                option.disabled = true;
-                option.textContent = 'No subjects found';
-                subjectDropdown.appendChild(option);
-            } else {
-                subjects.forEach(subject => {
-                    const option = document.createElement('option');
-                    option.value = subject.id;
-                    option.textContent = subject.name;
-                    subjectDropdown.appendChild(option);
-                });
-            }
-        }
-        
-        // Populate view subjects subject dropdown
-        const viewSubjectDropdown = document.getElementById('viewSubjectsSubject');
-        if (viewSubjectDropdown) {
-            viewSubjectDropdown.innerHTML = '<option value="">-- All Subjects --</option>';
-            subjects.forEach(subject => {
-                const option = document.createElement('option');
-                option.value = subject.id;
-                option.textContent = subject.name;
-                viewSubjectDropdown.appendChild(option);
-            });
-        }
-        
-        // Clear student and subject lists
-        document.getElementById('studentCheckboxList').innerHTML = '<p class="text-muted">Select a class first</p>';
-        
-    } catch (error) {
-        console.error('Error loading subjects tab:', error);
-        showMessage('subjectRegMessage', `Error: ${error.message}`, 'danger');
-    }
-}
 
-async function loadClassSubjects() {
-    const classId = document.getElementById('subjectRegClass').value;
-    if (!classId) {
-        document.getElementById('studentCheckboxList').innerHTML = '<p class="text-muted">Select a class first</p>';
-        return;
-    }
-    
-    try {
-        // Load students in this class
-        const students = await getStudentsByClass(classId);
-        const studentList = document.getElementById('studentCheckboxList');
-        
-        if (students.length === 0) {
-            studentList.innerHTML = '<p class="text-muted">No students in this class</p>';
-            return;
-        }
-        
-        studentList.innerHTML = '';
-        students.forEach(student => {
-            const checkbox = document.createElement('div');
-            checkbox.className = 'form-check';
-            checkbox.innerHTML = `
-                <input class="form-check-input student-checkbox" type="checkbox" value="${student.id}" id="student_${student.id}">
-                <label class="form-check-label" for="student_${student.id}">
-                    ${student.name} (${student.registrationNumber})
-                </label>
-            `;
-            studentList.appendChild(checkbox);
-        });
-        
-    } catch (error) {
-        console.error('Error loading class subjects:', error);
-        showMessage('subjectRegMessage', `Error: ${error.message}`, 'danger');
-    }
-}
-
-function selectAllStudents() {
-    const checkboxes = document.querySelectorAll('.student-checkbox');
-    checkboxes.forEach(checkbox => checkbox.checked = true);
-}
-
-function deselectAllStudents() {
-    const checkboxes = document.querySelectorAll('.student-checkbox');
-    checkboxes.forEach(checkbox => checkbox.checked = false);
-}
-
-async function handleBulkRegisterSubjects() {
-    const classId = document.getElementById('subjectRegClass').value;
-    const subjectId = document.getElementById('subjectRegSubject').value;
-    const notes = document.getElementById('subjectRegNotes').value;
-    
-    console.log('Registration attempt:', { classId, subjectId });
-    
-    if (!classId || !subjectId) {
-        showMessage('subjectRegMessage', 'Please select both class and subject', 'warning');
-        return;
-    }
-    
-    // Get selected students
-    const selectedStudents = Array.from(document.querySelectorAll('.student-checkbox:checked'))
-        .map(checkbox => checkbox.value);
-    
-    console.log('Selected students:', selectedStudents);
-    
-    if (selectedStudents.length === 0) {
-        showMessage('subjectRegMessage', 'Please select at least one student', 'warning');
-        return;
-    }
-    
-    try {
-        showMessage('subjectRegMessage', 'Registering students...', 'info');
-        
-        const result = await window.bulkRegisterSubjects(currentUser, {
-            classId,
-            subjectId,
-            studentIds: selectedStudents,
-            notes
-        });
-        
-        console.log('Registration result:', result);
-        
-        if (result.success) {
-            showMessage('subjectRegMessage', 
-                `Successfully registered ${result.summary.successCount} student(s)`, 
-                'success');
-            // Clear form
-            document.getElementById('subjectRegNotes').value = '';
-            document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = false);
-            // Reload data
-            await loadClassSubjectsList();
-        } else {
-            let errorDetails = `Registered ${result.summary.successCount}, Failed ${result.summary.failedCount}`;
-            
-            // Show detailed error messages
-            if (result.results.failed.length > 0) {
-                const failureDetails = result.results.failed
-                    .map(f => `${f.studentId}: ${f.error}`)
-                    .join('; ');
-                errorDetails += ` - ${failureDetails}`;
-            }
-            
-            console.error('Registration failures:', result.results.failed);
-            showMessage('subjectRegMessage', errorDetails, 'warning');
-        }
-    } catch (error) {
-        console.error('Error registering subjects:', error);
-        showMessage('subjectRegMessage', `Error: ${error.message}`, 'danger');
-    }
-}
-
-async function loadClassSubjectsList() {
-    const classId = document.getElementById('viewSubjectsClass').value;
-    
-    if (!classId) {
-        document.getElementById('subjectRegistrationsContent').innerHTML = '<p class="text-muted">Select a class to view registrations</p>';
-        return;
-    }
-    
-    try {
-        const registrations = await getStudentsForSubject(currentUser, null, classId);
-        const content = document.getElementById('subjectRegistrationsContent');
-        
-        if (registrations.length === 0) {
-            content.innerHTML = '<p class="text-muted">No subject registrations found for this class</p>';
-            return;
-        }
-        
-        // Group by subject
-        const grouped = {};
-        registrations.forEach(reg => {
-            if (!grouped[reg.subjectId]) {
-                grouped[reg.subjectId] = {
-                    subjectId: reg.subjectId,
-                    subjectName: reg.subjectName,
-                    students: []
-                };
-            }
-            grouped[reg.subjectId].students.push(reg);
-        });
-        
-        let html = '';
-        Object.values(grouped).forEach(subject => {
-            html += `
-                <div class="card mb-3">
-                    <div class="card-header bg-light">
-                        <h6 class="mb-0">${subject.subjectName} (${subject.students.length} students)</h6>
-                    </div>
-                    <div class="card-body">
-                        <table class="table table-sm">
-                            <thead>
-                                <tr>
-                                    <th>Student Name</th>
-                                    <th>Registration #</th>
-                                    <th>Status</th>
-                                    <th>Registered By</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-            `;
-            
-            subject.students.forEach(student => {
-                html += `
-                    <tr>
-                        <td>${student.studentName}</td>
-                        <td>${student.studentId}</td>
-                        <td><span class="badge bg-success">${student.status || 'active'}</span></td>
-                        <td>${student.registeredByName || 'System'}</td>
-                        <td>
-                            <button onclick="removeSubjectReg('${student.id}')" class="btn btn-sm btn-danger">Remove</button>
-                        </td>
-                    </tr>
-                `;
-            });
-            
-            html += `
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            `;
-        });
-        
-        content.innerHTML = html;
-        
-    } catch (error) {
-        console.error('Error loading subject registrations:', error);
-        document.getElementById('subjectRegistrationsContent').innerHTML = `<p class="text-muted">No registrations found</p>`;
-    }
-}
-
-async function removeSubjectReg(registrationId) {
-    if (!confirm('Are you sure you want to remove this registration?')) {
-        return;
-    }
-    
-    try {
-        await removeSubjectRegistration(currentUser, registrationId);
-        showMessage('subjectRegistrationsContent', 'Registration removed successfully', 'success');
-        await loadClassSubjectsList();
-    } catch (error) {
-        console.error('Error removing registration:', error);
-        showMessage('subjectRegistrationsContent', `Error: ${error.message}`, 'danger');
-    }
-}
-
-async function loadSubjectSummary() {
-    const classId = document.getElementById('summaryClass').value;
-    
-    if (!classId) {
-        document.getElementById('subjectSummaryContent').innerHTML = '<p class="text-muted">Select a class to view summary</p>';
-        return;
-    }
-    
-    try {
-        const summary = await getClassSubjectSummary(currentUser, classId);
-        const content = document.getElementById('subjectSummaryContent');
-        
-        if (Object.keys(summary.subjectStats).length === 0) {
-            content.innerHTML = '<p class="text-muted">No subjects registered in this class</p>';
-            return;
-        }
-        
-        let html = `
-            <div class="alert alert-info">
-                <strong>Total Registrations:</strong> ${summary.totalRegistrations}
-            </div>
-            <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Subject</th>
-                            <th>Student Count</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
-        
-        Object.values(summary.subjectStats).forEach(subj => {
-            html += `
-                <tr>
-                    <td>${subj.subjectName}</td>
-                    <td><span class="badge bg-primary">${subj.studentCount}</span></td>
-                </tr>
-            `;
-        });
-        
-        html += `
-                    </tbody>
-                </table>
-            </div>
-        `;
-        
-        content.innerHTML = html;
-        
-    } catch (error) {
-        console.error('Error loading subject summary:', error);
-        showMessage('subjectSummaryContent', `Error: ${error.message}`, 'danger');
-    }
-}
 
 // ============================================
 // FEE MANAGEMENT FUNCTIONS
@@ -3340,6 +2946,7 @@ async function handleRecordPayment(event) {
             studentName: studentData.name,
             studentClass: studentData.class,
             session: session,
+            term: term,
             amountPaid: amount,
             balance: newBalance > 0 ? newBalance : 0,
             adminName: adminName,
@@ -3349,10 +2956,9 @@ async function handleRecordPayment(event) {
             paymentId: payment.paymentId
         };
         
-        // Show receipt modal
-        const receiptModal = new bootstrap.Modal(document.getElementById('paymentReceiptModal'));
+        // Display receipt
         displayReceipt();
-        receiptModal.show();
+        document.getElementById('receiptContent').style.display = 'block';
         
         // Reset form
         document.getElementById('recordPaymentForm').reset();
@@ -3373,7 +2979,7 @@ function displayReceipt() {
     if (!data) return;
     
     const receiptHTML = `
-        <div style="padding: 30px; font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="padding: 30px; font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: white; border: 1px solid #ddd; border-radius: 8px;">
             <div style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px;">
                 <h2 style="margin: 0; color: #2c3e50;">PAYMENT RECEIPT</h2>
                 <p style="margin: 5px 0; color: #666; font-size: 14px;">Abimbola School</p>
@@ -3394,15 +3000,15 @@ function displayReceipt() {
                     <span style="font-weight: bold; color: #333;">Academic Session:</span>
                     <span style="color: #666;">${data.session}</span>
                 </div>
+
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 12px;">
+                    <span style="font-weight: bold; color: #333;">Term:</span>
+                    <span style="color: #666;">${data.term}</span>
+                </div>
                 
                 <div style="display: flex; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 12px;">
                     <span style="font-weight: bold; color: #333;">Payment Date:</span>
                     <span style="color: #666;">${data.paymentDate}</span>
-                </div>
-                
-                <div style="display: flex; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 12px;">
-                    <span style="font-weight: bold; color: #333;">Payment Method:</span>
-                    <span style="color: #666;">${data.paymentMethod}</span>
                 </div>
             </div>
             
@@ -3427,7 +3033,7 @@ function displayReceipt() {
             
             <div style="border-top: 2px solid #333; padding-top: 20px; margin-bottom: 20px;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="color: #666;">Received By:</span>
+                    <span style="color: #666;">Recorded By:</span>
                     <span style="font-weight: bold; color: #333;">${data.adminName}</span>
                 </div>
                 
@@ -3444,9 +3050,15 @@ function displayReceipt() {
                 </div>
             </div>
             
-            <div style="text-align: center; color: #999; font-size: 12px; margin-top: 30px;">
+            <div style="text-align: center; color: #999; font-size: 12px; margin-top: 30px; margin-bottom: 20px;">
                 <p>Thank you for your payment</p>
                 <p>For inquiries, contact the school bursar</p>
+            </div>
+
+            <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+                <button onclick="printReceipt()" class="btn btn-primary" style="padding: 8px 20px; font-size: 14px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px;">
+                    🖨️ Print Receipt
+                </button>
             </div>
         </div>
     `;
@@ -3971,6 +3583,7 @@ function reprintReceipt(paymentId, studentId, term, studentName, studentClass, s
                 studentName: studentName,
                 studentClass: studentClass,
                 session: session,
+                term: term,
                 amountPaid: amount,
                 balance: balance,
                 adminName: adminName,
@@ -3979,10 +3592,12 @@ function reprintReceipt(paymentId, studentId, term, studentName, studentClass, s
                 reference: reference || ''
             };
             
-            // Show receipt modal
-            const receiptModal = new bootstrap.Modal(document.getElementById('paymentReceiptModal'));
+            // Display receipt
             displayReceipt();
-            receiptModal.show();
+            document.getElementById('receiptContent').style.display = 'block';
+            
+            // Scroll to receipt
+            document.getElementById('receiptContent').scrollIntoView({ behavior: 'smooth' });
         }
     });
 }
@@ -4047,12 +3662,6 @@ window.handleDeleteAnnouncement = handleDeleteAnnouncement;
 window.deleteAnnouncementConfirm = deleteAnnouncementConfirm;
 window.loadAttendanceChart = loadAttendanceChart;
 window.loadOverallAttendanceChart = loadOverallAttendanceChart;
-window.loadSubjectsTab = loadSubjectsTab;
-window.loadClassSubjects = loadClassSubjects;
-window.handleBulkRegisterSubjects = handleBulkRegisterSubjects;
-window.loadClassSubjectsList = loadClassSubjectsList;
-window.removeSubjectReg = removeSubjectReg;
-window.loadSubjectSummary = loadSubjectSummary;
 // Fee management functions
 window.initializeFeesTab = initializeFeesTab;
 window.addFeeItem = addFeeItem;

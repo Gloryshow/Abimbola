@@ -790,6 +790,7 @@
                     <button class="nav-link text-start" onclick="switchTab('results'); document.getElementById('mobileMenu').classList.remove('show');">📝 Results</button>
                     <button class="nav-link text-start" onclick="switchTab('announcements'); document.getElementById('mobileMenu').classList.remove('show');">📢 Announcements</button>
                     <button class="nav-link text-start" onclick="switchTab('profile'); document.getElementById('mobileMenu').classList.remove('show');">👤 Profile</button>
+                    <button class="nav-link text-start" id="feeManagementMobileBtn" style="display: none;" onclick="switchTab('feeManagement'); document.getElementById('mobileMenu').classList.remove('show');">💰 Fee Management</button>
                 </nav>
                 <div class="d-flex flex-column gap-2">
                     <button id="adminPanelBtnMobile" onclick="showAdminPanel()" class="btn btn-primary btn-sm" style="display: none;">Admin Panel</button>
@@ -840,9 +841,6 @@
                 </li>
                 <li class="nav-item">
                     <button class="nav-link" onclick="switchTab('results')">📝 Results</button>
-                </li>
-                <li class="nav-item">
-                    <button class="nav-link" onclick="switchTab('subjects')">📖 Subject Registration</button>
                 </li>
                 <li class="nav-item" id="feeManagementTabBtn" style="display: none;">
                     <button class="nav-link" onclick="switchTab('feeManagement')">💰 Fee Management</button>
@@ -1022,98 +1020,7 @@
             </div>
 
             <!-- Subject Registration Tab -->
-            <div id="subjectsTab" class="tab-content">
-                <!-- Register Students for Subjects Section -->
-                <div class="card mb-4">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0">📖 Register Students for Subjects</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row mb-3">
-                            <div class="col-12 col-md-6">
-                                <label class="form-label">Select Class</label>
-                                <select id="subjectRegClass" class="form-control" onchange="loadClassSubjects()">
-                                    <option value="">-- Select Class --</option>
-                                </select>
-                            </div>
-                            <div class="col-12 col-md-6">
-                                <label class="form-label">Select Subject</label>
-                                <select id="subjectRegSubject" class="form-control">
-                                    <option value="">-- Select Subject --</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="row mb-3">
-                            <div class="col-12">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <label class="form-label mb-0">Select Students</label>
-                                    <div>
-                                        <button onclick="selectAllStudents()" class="btn btn-sm btn-outline-primary">Select All</button>
-                                        <button onclick="deselectAllStudents()" class="btn btn-sm btn-outline-secondary">Deselect All</button>
-                                    </div>
-                                </div>
-                                <div id="studentCheckboxList" class="card p-3" style="max-height: 300px; overflow-y: auto;">
-                                    <p class="text-muted">Select a class first</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row mb-3">
-                            <div class="col-12">
-                                <label class="form-label">Notes (Optional)</label>
-                                <textarea id="subjectRegNotes" class="form-control" rows="2" placeholder="Add any notes about this registration"></textarea>
-                            </div>
-                        </div>
-                        <button onclick="handleBulkRegisterSubjects()" class="btn btn-success">Register Selected Students</button>
-                        <div id="subjectRegMessage" class="mt-2"></div>
-                    </div>
-                </div>
 
-                <!-- View Subject Registrations Section -->
-                <div class="card mb-4">
-                    <div class="card-header bg-info text-white">
-                        <h5 class="mb-0">👥 Subject Registrations</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row mb-3">
-                            <div class="col-12 col-md-6">
-                                <label class="form-label">Select Class</label>
-                                <select id="viewSubjectsClass" class="form-control" onchange="loadClassSubjectsList()">
-                                    <option value="">-- Select Class --</option>
-                                </select>
-                            </div>
-                            <div class="col-12 col-md-6">
-                                <label class="form-label">Select Subject</label>
-                                <select id="viewSubjectsSubject" class="form-control" onchange="loadClassSubjectsList()">
-                                    <option value="">-- All Subjects --</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div id="subjectRegistrationsContent">
-                            <!-- Registrations table will load here -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Class Subject Summary Section -->
-                <div class="card">
-                    <div class="card-header bg-success text-white">
-                        <h5 class="mb-0">📊 Subject Summary by Class</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row mb-3">
-                            <div class="col-12 col-md-6">
-                                <label class="form-label">Select Class</label>
-                                <select id="summaryClass" class="form-control" onchange="loadSubjectSummary()">
-                                    <option value="">-- Select Class --</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div id="subjectSummaryContent">
-                            <!-- Summary will load here -->
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             <!-- Announcements Tab -->
             <div id="announcementsTab" class="tab-content">
@@ -1325,6 +1232,11 @@
                                         </div>
                                     </div>
                                 </form>
+
+                                <!-- Receipt Display -->
+                                <div id="receiptContent" class="mt-4" style="display: none;">
+                                    <!-- Receipt will be displayed here -->
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1378,7 +1290,7 @@
                             <div class="card-body">
                                 <div class="row mb-3">
                                     <div class="col-12 col-md-4 mb-2">
-                                        <label class="form-label">Select Student</label>
+                                        <label class="form-label">Select Class</label>
                                         <select id="reprintStudentClass" class="form-control" onchange="loadReprintStudents()">
                                             <option value="">-- Select Class --</option>
                                         </select>
@@ -1394,12 +1306,12 @@
                                     </div>
                                     <div class="col-12 col-md-4 mb-2">
                                         <label class="form-label">Academic Session</label>
-                                        <input type="text" id="reprintSession" class="form-control" placeholder="e.g., 2024/2025">
+                                        <input type="text" id="reprintSession" class="form-control" placeholder="e.g., 2024/2025" onchange="loadReprintPayments()">
                                     </div>
                                 </div>
 
-                                <div id="reprintPaymentsList" class="mt-3">
-                                    <p class="text-muted">Select a student to view payment history</p>
+                                <div id="reprintPaymentsContainer" class="mt-3">
+                                    <p class="text-muted">Select a student to reprint receipt</p>
                                 </div>
                             </div>
                         </div>
