@@ -323,7 +323,8 @@ const submitResult = async (user, resultData) => {
   }
 
   try {
-    const resultId = `${resultData.studentId}_${resultData.subjectId}_${resultData.classId}_${resultData.termId || 'final'}`;
+    const sessionIdFormatted = resultData.sessionId ? resultData.sessionId.replace('/', '_') : '';
+    const resultId = `${resultData.studentId}_${resultData.subjectId}_${resultData.classId}_${resultData.termId || 'final'}_${sessionIdFormatted}`;
     
     // Calculate CA average and final score
     const caAverage = calculateCAAverage(resultData.ca1, resultData.ca2, resultData.ca3);
@@ -337,6 +338,7 @@ const submitResult = async (user, resultData) => {
       subjectName: resultData.subjectName,
       classId: resultData.classId,
       termId: resultData.termId || 'final',
+      sessionId: resultData.sessionId || '',
       teacherId: user.uid,
       teacherName: user.name,
       
@@ -396,17 +398,22 @@ const getStudentTermResults = async (user, studentId, termId) => {
 /**
  * Get results submitted by a teacher for a class/subject
  */
-const getTeacherResults = async (user, classId, subjectId, termId) => {
+const getTeacherResults = async (user, classId, subjectId, termId, sessionId) => {
   if (user.role === 'teacher' && !user.assignedSubjects?.includes(subjectId)) {
     throw new Error('Access denied: You are not assigned to this subject');
   }
 
   try {
-    const resultsSnapshot = await window.db.collection('results')
+    let query = window.db.collection('results')
       .where('classId', '==', classId)
       .where('subjectId', '==', subjectId)
-      .where('termId', '==', termId || 'final')
-      .get();
+      .where('termId', '==', termId || 'final');
+    
+    if (sessionId) {
+      query = query.where('sessionId', '==', sessionId);
+    }
+
+    const resultsSnapshot = await query.get();
 
     return resultsSnapshot.docs.map((doc) => ({
       id: doc.id,
@@ -420,7 +427,7 @@ const getTeacherResults = async (user, classId, subjectId, termId) => {
 /**
  * Get all results for admin - with optional filtering
  */
-const getAdminResults = async (user, classId, subjectId, termId) => {
+const getAdminResults = async (user, classId, subjectId, termId, sessionId) => {
   // Only admins can view all results
   if (user.role !== 'admin') {
     throw new Error('Access denied: Only admins can view all results');
@@ -438,6 +445,9 @@ const getAdminResults = async (user, classId, subjectId, termId) => {
     if (termId) {
       query = query.where('termId', '==', termId);
     }
+    if (sessionId) {
+      query = query.where('sessionId', '==', sessionId);
+    }
 
     const resultsSnapshot = await query.get();
 
@@ -447,6 +457,39 @@ const getAdminResults = async (user, classId, subjectId, termId) => {
     }));
   } catch (error) {
     throw new Error(`Failed to fetch results: ${error.message}`);
+  }
+};
+
+/**
+ * Get combined results for all subjects for admin - combines all subjects for a class/term
+ */
+const getCombinedAdminResults = async (user, classId, termId, sessionId) => {
+  // Only admins can view all results
+  if (user.role !== 'admin') {
+    throw new Error('Access denied: Only admins can view combined results');
+  }
+
+  try {
+    let query = window.db.collection('results');
+
+    if (classId) {
+      query = query.where('classId', '==', classId);
+    }
+    if (termId) {
+      query = query.where('termId', '==', termId);
+    }
+    if (sessionId) {
+      query = query.where('sessionId', '==', sessionId);
+    }
+
+    const resultsSnapshot = await query.get();
+
+    return resultsSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  } catch (error) {
+    throw new Error(`Failed to fetch combined results: ${error.message}`);
   }
 };
 
@@ -465,3 +508,4 @@ window.submitResult = submitResult;
 window.getStudentTermResults = getStudentTermResults;
 window.getTeacherResults = getTeacherResults;
 window.getAdminResults = getAdminResults;
+window.getCombinedAdminResults = getCombinedAdminResults;

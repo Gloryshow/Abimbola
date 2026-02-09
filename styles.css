@@ -86,6 +86,46 @@ body {
     display: block;
 }
 
+/* Admin Tab Styles */
+#adminTabs {
+    position: relative;
+    z-index: 10;
+}
+
+.tab-pane {
+    display: none;
+    position: relative;
+    width: 100%;
+}
+
+.tab-pane.show,
+.tab-pane.active {
+    display: block !important;
+}
+
+#studentsTab.show.active,
+#teachersTab.show.active {
+    display: block !important;
+    visibility: visible !important;
+}
+
+#adminStudentForm {
+    width: 100%;
+}
+
+/* Responsive spacing for Students Tab */
+#studentsTab {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+#studentsTab .row {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+#studentsTab .card {
+    margin-bottom: 0 !important;
+}
+
 /* Auth Page Styles */
 .auth-container {
     min-height: 100vh;
@@ -1040,6 +1080,27 @@ body {
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+/* iPhone/Small phones (max 480px) */
+@media (max-width: 480px) {
+    #studentsTab {
+        margin-top: 1rem !important;
+    }
+}
+
+/* Tablets (481px - 768px) */
+@media (min-width: 481px) and (max-width: 768px) {
+    #studentsTab {
+        margin-top: 1rem !important;
+    }
+}
+
+/* Laptops/Desktops (769px+) */
+@media (min-width: 769px) {
+    #studentsTab {
+        margin-top: 1rem !important;
     }
 }
 

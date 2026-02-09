@@ -99,6 +99,53 @@
             margin-top: 0.5rem;
             font-size: 0.9rem;
         }
+        .nav-tabs .nav-link {
+            color: #333;
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+        }
+        .nav-tabs .nav-link:hover {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        .nav-tabs .nav-link.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background-color: transparent;
+        }
+        .fee-management-tab-content {
+            display: block !important;
+            width: 100% !important;
+            visibility: visible !important;
+            min-height: 100px;
+        }
+        .fee-management-tab-content .tab-pane {
+            display: none !important;
+            min-height: 200px;
+        }
+        .fee-management-tab-content .tab-pane.show,
+        .fee-management-tab-content .tab-pane.active {
+            display: block !important;
+            visibility: visible !important;
+            min-height: 200px;
+        }
+        /* Force all children to be visible when tab is active */
+        .fee-management-tab-content .tab-pane.show > *,
+        .fee-management-tab-content .tab-pane.active > * {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        .tab-pane {
+            display: none !important;
+        }
+        .tab-pane.show,
+        .tab-pane.active {
+            display: block !important;
+        }
         .navbar-brand {
             font-size: 1.3rem;
             font-weight: bold;
@@ -115,24 +162,6 @@
         }
         #studentsTab .card {
             margin-bottom: 0 !important;
-        }
-        /* iPhone/Small phones (max 480px) */
-        @media (max-width: 480px) {
-            #studentsTab {
-                margin-top: -62rem !important;
-            }
-        }
-        /* Tablets (481px - 768px) */
-        @media (min-width: 481px) and (max-width: 768px) {
-            #studentsTab {
-                margin-top: -48rem !important;
-            }
-        }
-        /* Laptops/Desktops (769px+) */
-        @media (min-width: 769px) {
-            #studentsTab {
-                margin-top: -42rem !important;
-            }
         }
     </style>
 </head>
@@ -232,7 +261,7 @@
             </ul>
 
             <!-- Teachers Tab -->
-            <div id="teachersTab" class="tab-pane fade show active" role="tabpanel">
+            <div id="teachersTab" class="tab-pane show active" role="tabpanel">
                 <div class="row">
                     <div class="col-12 col-lg-6">
                         <div class="card mb-4">
@@ -258,8 +287,8 @@
             </div>
 
             <!-- Students Tab -->
-            <div id="studentsTab" class="tab-pane fade" role="tabpanel">
-                <div id="adminStudentForm" class="row mb-4" style="display: none;">
+            <div id="studentsTab" class="tab-pane" role="tabpanel">
+                <div id="adminStudentForm" class="row mb-4">
                     <div class="col-12">
                         <div class="card">
                             <div class="card-header bg-primary text-white">
@@ -297,6 +326,12 @@
                                                 <option value="SS 1 Commercial">Senior Secondary 1 (Commercial)</option>
                                                 <option value="SS 2 Commercial">Senior Secondary 2 (Commercial)</option>
                                                 <option value="SS 3 Commercial">Senior Secondary 3 (Commercial)</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-12 col-md-6 mb-3">
+                                            <label class="form-label">Session *</label>
+                                            <select id="studentSession" class="form-control" required>
+                                                <option value="">-- Select Session --</option>
                                             </select>
                                         </div>
                                         <div class="col-12 col-md-6 mb-3">
@@ -754,17 +789,7 @@
             <!-- Overview Tab -->
             <div id="overviewTab" class="tab-content active">
                 <div class="row g-3">
-                    <div class="col-12 col-lg-6">
-                        <div class="card">
-                            <div class="card-header bg-primary text-white">
-                                <h5 class="mb-0">📅 My Timetable</h5>
-                            </div>
-                            <div id="timetableContent" class="card-body">
-                                <!-- Timetable will load here -->
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12 col-lg-6">
+                    <div class="col-12">
                         <div class="card">
                             <div class="card-header bg-success text-white">
                                 <h5 class="mb-0">🔔 Pending Actions</h5>
@@ -859,6 +884,12 @@
                                 </select>
                             </div>
                             <div class="col-12 col-md-6">
+                                <label class="form-label">Select Session</label>
+                                <select id="resultsSession" class="form-control" onchange="loadResultsStudents()">
+                                    <option value="">-- Select Session --</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6">
                                 <label class="form-label">Select Subject</label>
                                 <select id="resultsSubject" class="form-control" onchange="loadResultsStudents()">
                                     <option value="">-- Select Subject --</option>
@@ -867,6 +898,7 @@
                             <div class="col-12 col-md-6">
                                 <label class="form-label">Select Term</label>
                                 <select id="resultsTerm" class="form-control" onchange="loadResultsStudents()">
+                                    <option value="">-- Select Term --</option>
                                     <option value="term1">Term 1</option>
                                     <option value="term2">Term 2</option>
                                     <option value="term3">Term 3</option>
@@ -895,17 +927,24 @@
                                 </select>
                             </div>
                             <div class="col-12 col-md-6">
-                                <label class="form-label">Select Subject</label>
-                                <select id="viewResultsSubject" class="form-control" onchange="loadViewResults()">
-                                    <option value="">-- Select Subject --</option>
+                                <label class="form-label">Select Session</label>
+                                <select id="viewResultsSession" class="form-control" onchange="loadViewResults()">
+                                    <option value="">-- Select Session --</option>
                                 </select>
                             </div>
                             <div class="col-12 col-md-6">
                                 <label class="form-label">Select Term</label>
                                 <select id="viewResultsTerm" class="form-control" onchange="loadViewResults()">
+                                    <option value="">-- Select Term --</option>
                                     <option value="term1">Term 1</option>
                                     <option value="term2">Term 2</option>
                                     <option value="term3">Term 3</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Select Subject</label>
+                                <select id="viewResultsSubject" class="form-control" onchange="loadViewResults()">
+                                    <option value="">-- All Subjects --</option>
                                 </select>
                             </div>
                         </div>
@@ -952,19 +991,57 @@
 
             <!-- Fee Management Tab (Admin Only) -->
             <div id="feeManagementTab" class="tab-content">
-                <!-- Fee Structure Setup Section -->
+                <!-- Fee Management Sub-Navigation -->
                 <div class="row mb-4">
                     <div class="col-12">
-                        <div class="card">
-                            <div class="card-header bg-success text-white">
-                                <h5 class="mb-0">💰 Fee Structure Setup</h5>
+                        <ul class="nav nav-tabs" role="tablist" style="border-bottom: 2px solid #dee2e6;">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="feeStructureSubTab" data-bs-toggle="tab" data-bs-target="#feeStructureSection" type="button" role="tab" aria-controls="feeStructureSection" aria-selected="true" style="border: none; padding: 12px 20px; cursor: pointer;">
+                                    <span style="font-size: 16px;">⚙️</span> Fee Structure
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="feeSummarySubTab" data-bs-toggle="tab" data-bs-target="#feeSummarySection" type="button" role="tab" aria-controls="feeSummarySection" aria-selected="false" style="border: none; padding: 12px 20px; cursor: pointer;">
+                                    <span style="font-size: 16px;">📊</span> Fee Summary
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="recordPaymentSubTab" data-bs-toggle="tab" data-bs-target="#recordPaymentSection" type="button" role="tab" aria-controls="recordPaymentSection" aria-selected="false" style="border: none; padding: 12px 20px; cursor: pointer;">
+                                    <span style="font-size: 16px;">💵</span> Record Payment
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="feeDetailsSubTab" data-bs-toggle="tab" data-bs-target="#feeDetailsSection" type="button" role="tab" aria-controls="feeDetailsSection" aria-selected="false" style="border: none; padding: 12px 20px; cursor: pointer;">
+                                    <span style="font-size: 16px;">📋</span> Fee Details
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="reprintReceiptSubTab" data-bs-toggle="tab" data-bs-target="#reprintReceiptSection" type="button" role="tab" aria-controls="reprintReceiptSection" aria-selected="false" style="border: none; padding: 12px 20px; cursor: pointer;">
+                                    <span style="font-size: 16px;">🖨️</span> Reprint Receipt
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Tab Contents -->
+                <div class="fee-management-tab-content" id="feeManagementTabContent">
+                    <!-- Fee Structure Section -->
+                    <div class="tab-pane active show" id="feeStructureSection" role="tabpanel" aria-labelledby="feeStructureSubTab">
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header bg-success text-white">
+                                        <h5 class="mb-0">💰 Fee Structure Setup</h5>
                             </div>
                             <div class="card-body">
                                 <form id="feeStructureForm" onsubmit="handleCreateFeeStructure(event)">
                                     <div class="row">
                                         <div class="col-12 col-md-3 mb-3">
                                             <label class="form-label">Academic Session *</label>
-                                            <input type="text" id="feeStructureSession" class="form-control" placeholder="e.g., 2024/2025" required>
+                                            <select id="feeStructureSession" class="form-control" required>
+                                                <option value="">-- Select Session --</option>
+                                            </select>
                                         </div>
                                         <div class="col-12 col-md-3 mb-3">
                                             <label class="form-label">Select Class *</label>
@@ -1051,87 +1128,99 @@
                             </div>
                         </div>
                     </div>
+                    </div>
                 </div>
 
-                <!-- Class Fee Summary Dashboard -->
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header bg-info text-white">
-                                <h5 class="mb-0">📊 Class Fee Summary</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row mb-3">
-                                    <div class="col-12 col-md-3 mb-2">
-                                        <label class="form-label">Academic Session</label>
-                                        <input type="text" id="summarySession" class="form-control" placeholder="e.g., 2024/2025" onchange="loadClassFeeSummary()">
+                    <!-- Class Fee Summary Section -->
+                    <div class="tab-pane" id="feeSummarySection" role="tabpanel" aria-labelledby="feeSummarySubTab">
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header bg-info text-white">
+                                        <h5 class="mb-0">📊 Class Fee Summary</h5>
                                     </div>
-                                    <div class="col-12 col-md-3 mb-2">
-                                        <label class="form-label">Select Class</label>
-                                        <select id="feeSummaryClass" class="form-control" onchange="loadClassFeeSummary()">
-                                            <option value="">-- Select Class --</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-12 col-md-3 mb-2">
-                                        <label class="form-label">Select Term</label>
-                                        <select id="summaryTerm" class="form-control" onchange="loadClassFeeSummary()">
-                                            <option value="">-- Select Term --</option>
-                                            <option value="firstTerm">First Term</option>
-                                            <option value="secondTerm">Second Term</option>
-                                            <option value="thirdTerm">Third Term</option>
-                                        </select>
-                                    </div>
-                                </div>
+                                    <div class="card-body">
+                                        <div class="row mb-3">
+                                            <div class="col-12 col-md-3 mb-2">
+                                                <label class="form-label">Academic Session</label>
+                                                <select id="summarySession" class="form-control" onchange="loadClassFeeSummary()">
+                                                    <option value="">-- Select Session --</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-12 col-md-3 mb-2">
+                                                <label class="form-label">Select Class</label>
+                                                <select id="feeSummaryClass" class="form-control" onchange="loadClassFeeSummary()">
+                                                    <option value="">-- Select Class --</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-12 col-md-3 mb-2">
+                                                <label class="form-label">Select Term</label>
+                                                <select id="summaryTerm" class="form-control" onchange="loadClassFeeSummary()">
+                                                    <option value="">-- Select Term --</option>
+                                                    <option value="firstTerm">First Term</option>
+                                                    <option value="secondTerm">Second Term</option>
+                                                    <option value="thirdTerm">Third Term</option>
+                                                </select>
+                                            </div>
+                                        </div>
 
-                                <div id="feeSummaryStats" class="row mb-4">
-                                    <div class="col-12 col-md-3 mb-3">
-                                        <div class="stat-card border-start border-5" style="border-color: #667eea !important;">
-                                            <h6 class="text-muted mb-2">Total Students</h6>
-                                            <h3 id="summaryStudents">0</h3>
+                                        <div id="feeSummaryStats" class="row mb-4">
+                                            <div class="col-12 col-md-3 mb-3">
+                                                <div class="stat-card border-start border-5" style="border-color: #667eea !important;">
+                                                    <h6 class="text-muted mb-2">Total Students</h6>
+                                                    <h3 id="summaryStudents">0</h3>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 col-md-3 mb-3">
+                                                <div class="stat-card border-start border-5" style="border-color: #17a2b8 !important;">
+                                                    <h6 class="text-muted mb-2">Expected Fees</h6>
+                                                    <h3 id="summaryExpected" style="color: #17a2b8;">₦0</h3>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 col-md-3 mb-3">
+                                                <div class="stat-card border-start border-5" style="border-color: #28a745 !important;">
+                                                    <h6 class="text-muted mb-2">Collected</h6>
+                                                    <h3 id="summaryCollected" style="color: #28a745;">₦0</h3>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 col-md-3 mb-3">
+                                                <div class="stat-card border-start border-5" style="border-color: #dc3545 !important;">
+                                                    <h6 class="text-muted mb-2">Outstanding</h6>
+                                                    <h3 id="summaryOutstanding" style="color: #dc3545;">₦0</h3>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="col-12 col-md-3 mb-3">
-                                        <div class="stat-card border-start border-5" style="border-color: #17a2b8 !important;">
-                                            <h6 class="text-muted mb-2">Expected Fees</h6>
-                                            <h3 id="summaryExpected" style="color: #17a2b8;">₦0</h3>
-                                        </div>
-                                    </div>
-                                    <div class="col-12 col-md-3 mb-3">
-                                        <div class="stat-card border-start border-5" style="border-color: #28a745 !important;">
-                                            <h6 class="text-muted mb-2">Collected</h6>
-                                            <h3 id="summaryCollected" style="color: #28a745;">₦0</h3>
-                                        </div>
-                                    </div>
-                                    <div class="col-12 col-md-3 mb-3">
-                                        <div class="stat-card border-start border-5" style="border-color: #dc3545 !important;">
-                                            <h6 class="text-muted mb-2">Outstanding</h6>
-                                            <h3 id="summaryOutstanding" style="color: #dc3545;">₦0</h3>
-                                        </div>
-                                    </div>
-                                </div>
 
-                                <div id="feeSummaryDetails" style="overflow-x: auto;">
-                                    <p class="text-muted">Select a class and term to view details</p>
+                                        <div id="feeSummaryDetails" style="overflow-x: auto;">
+                                            <p class="text-muted">Select a class and term to view details</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Record Payment Section -->
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header bg-primary text-white">
-                                <h5 class="mb-0">💵 Record Student Payment</h5>
-                            </div>
-                            <div class="card-body">
-                                <form id="recordPaymentForm" onsubmit="handleRecordPayment(event)">
-                                    <div class="row">
+                    <!-- Record Payment Section -->
+                    <div class="tab-pane" id="recordPaymentSection" role="tabpanel" aria-labelledby="recordPaymentSubTab">
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header bg-primary text-white">
+                                        <h5 class="mb-0">💵 Record Student Payment</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <form id="recordPaymentForm" onsubmit="handleRecordPayment(event)">
+                                            <div class="row">
                                         <div class="col-12 col-md-3 mb-3">
                                             <label class="form-label">Select Student *</label>
                                             <select id="paymentStudentClass" class="form-control" onchange="loadStudentsForPayment()" required>
                                                 <option value="">-- Select Class --</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-12 col-md-3 mb-3">
+                                            <label class="form-label">Academic Session *</label>
+                                            <select id="paymentSession" class="form-control" onchange="loadStudentsForPayment()" required>
+                                                <option value="">-- Select Session --</option>
                                             </select>
                                         </div>
                                         <div class="col-12 col-md-3 mb-3">
@@ -1141,15 +1230,6 @@
                                             </div>
                                             <select id="paymentStudent" class="form-control" required>
                                                 <option value="">-- Select Student --</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-12 col-md-3 mb-3">
-                                            <label class="form-label">Term *</label>
-                                            <select id="paymentTerm" class="form-control" required>
-                                                <option value="">-- Select Term --</option>
-                                                <option value="firstTerm">First Term</option>
-                                                <option value="secondTerm">Second Term</option>
-                                                <option value="thirdTerm">Third Term</option>
                                             </select>
                                         </div>
                                         <div class="col-12 col-md-3 mb-3">
@@ -1186,21 +1266,30 @@
                                     </div>
 
                                     <div class="row">
-                                        <div class="col-12 col-md-12 mb-3">
-                                            <label class="form-label">Academic Session *</label>
-                                            <input type="text" id="paymentSession" class="form-control" placeholder="e.g., 2024/2025" required>
+                                        <div class="col-12 col-md-3 mb-3">
+                                            <label class="form-label">Term *</label>
+                                            <select id="paymentTerm" class="form-control" required>
+                                                <option value="">-- Select Term --</option>
+                                                <option value="firstTerm">First Term</option>
+                                                <option value="secondTerm">Second Term</option>
+                                                <option value="thirdTerm">Third Term</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-12 col-md-3 mb-3">
+                                            <label class="form-label">Amount Paid (₦) *</label>
+                                            <input type="number" id="paymentAmount" class="form-control" placeholder="0" required min="0">
+                                        </div>
+                                        <div class="col-12 col-md-3 mb-3">
+                                            <label class="form-label">Payment Date *</label>
+                                            <input type="date" id="paymentDate" class="form-control" required>
+                                        </div>
+                                        <div class="col-12 col-md-3 mb-3">
+                                            <label class="form-label">&nbsp;</label>
+                                            <div class="mt-4"></div>
                                         </div>
                                     </div>
 
                                     <div class="row">
-                                        <div class="col-12 col-md-4 mb-3">
-                                            <label class="form-label">Amount Paid (₦) *</label>
-                                            <input type="number" id="paymentAmount" class="form-control" placeholder="0" required min="0">
-                                        </div>
-                                        <div class="col-12 col-md-4 mb-3">
-                                            <label class="form-label">Payment Date *</label>
-                                            <input type="date" id="paymentDate" class="form-control" required>
-                                        </div>
                                         <div class="col-12 col-md-4 mb-3">
                                             <label class="form-label">Payment Method *</label>
                                             <select id="paymentMethod" class="form-control" required>
@@ -1210,110 +1299,120 @@
                                                 <option value="POS">POS</option>
                                             </select>
                                         </div>
-                                    </div>
-
-                                    <div class="row">
-                                        <div class="col-12 col-md-6 mb-3">
+                                        <div class="col-12 col-md-4 mb-3">
                                             <label class="form-label">Received By (Admin Name)</label>
                                             <input type="text" id="paymentReceivedBy" class="form-control" placeholder="Admin/Bursar name" readonly>
                                         </div>
-                                        <div class="col-12 col-md-6 mb-3">
+                                        <div class="col-12 col-md-4 mb-3">
                                             <label class="form-label">Reference (e.g., Transfer Reference)</label>
                                             <input type="text" id="paymentReference" class="form-control" placeholder="Optional">
                                         </div>
                                     </div>
 
-                                    <div class="row">
-                                        <div class="col-12">
-                                            <button type="submit" class="btn btn-primary">Record Payment</button>
-                                            <button type="reset" class="btn btn-secondary">Clear</button>
-                                            <div id="recordPaymentMessage" class="mt-2"></div>
+                                            <div class="row">
+                                                <div class="col-12">
+                                                    <button type="submit" class="btn btn-primary">Record Payment</button>
+                                                    <button type="reset" class="btn btn-secondary">Clear</button>
+                                                    <div id="recordPaymentMessage" class="mt-2"></div>
+                                                </div>
+                                            </div>
+                                        </form>
+
+                                        <!-- Receipt Display -->
+                                        <div id="receiptContent" class="mt-4" style="display: none;">
+                                            <!-- Receipt will be displayed here -->
+                                        </div>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+
+                    <!-- Student Fee Details Section -->
+                    <div class="tab-pane" id="feeDetailsSection" role="tabpanel" aria-labelledby="feeDetailsSubTab">
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header bg-warning text-dark">
+                                        <h5 class="mb-0">📋 Student Fee Details & Payment History</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row mb-3">
+                                            <div class="col-12 col-md-4 mb-2">
+                                                <label class="form-label">Select Student</label>
+                                                <select id="detailsStudentClass" class="form-control" onchange="loadStudentsForDetails()">
+                                                    <option value="">-- Select Class --</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-12 col-md-4 mb-2">
+                                                <label class="form-label">Student Name</label>
+                                                <div class="input-group mb-2">
+                                                    <input type="text" id="detailsStudentSearch" class="form-control" placeholder="Search student..." oninput="filterStudentSelect('detailsStudent', 'detailsStudentSearch')">
+                                                </div>
+                                                <select id="detailsStudent" class="form-control" onchange="loadStudentFeeDetails()">
+                                                    <option value="">-- Select Student --</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-12 col-md-4 mb-2">
+                                                <label class="form-label">Academic Session</label>
+                                                <select id="detailsSession" class="form-control" onchange="loadStudentFeeDetails()">
+                                                    <option value="">-- Select Session --</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div id="studentFeeDetailsContainer" style="overflow-x: auto;">
+                                            <p class="text-muted">Select a student to view fee details and payment history</p>
                                         </div>
                                     </div>
-                                </form>
-
-                                <!-- Receipt Display -->
-                                <div id="receiptContent" class="mt-4" style="display: none;">
-                                    <!-- Receipt will be displayed here -->
                                 </div>
                             </div>
                         </div>
                     </div>
+                    </div>
                 </div>
 
-                <!-- Student Fee Details & Payment History -->
-                <div class="row">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header bg-warning text-dark">
-                                <h5 class="mb-0">📋 Student Fee Details & Payment History</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row mb-3">
-                                    <div class="col-12 col-md-4 mb-2">
-                                        <label class="form-label">Select Student</label>
-                                        <select id="detailsStudentClass" class="form-control" onchange="loadStudentsForDetails()">
-                                            <option value="">-- Select Class --</option>
-                                        </select>
+                    <!-- Reprint Receipt Section -->
+                    <div class="tab-pane" id="reprintReceiptSection" role="tabpanel" aria-labelledby="reprintReceiptSubTab">
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header bg-success text-white">
+                                        <h5 class="mb-0">🖨️ Reprint Receipt</h5>
                                     </div>
-                                    <div class="col-12 col-md-4 mb-2">
-                                        <label class="form-label">Student Name</label>
-                                        <div class="input-group mb-2">
-                                            <input type="text" id="detailsStudentSearch" class="form-control" placeholder="Search student..." oninput="filterStudentSelect('detailsStudent', 'detailsStudentSearch')">
+                                    <div class="card-body">
+                                        <div class="row mb-3">
+                                            <div class="col-12 col-md-4 mb-2">
+                                                <label class="form-label">Select Class</label>
+                                                <select id="reprintStudentClass" class="form-control" onchange="loadReprintStudents()">
+                                                    <option value="">-- Select Class --</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-12 col-md-4 mb-2">
+                                                <label class="form-label">Student Name</label>
+                                                <div class="input-group mb-2">
+                                                    <input type="text" id="reprintStudentSearch" class="form-control" placeholder="Search student..." oninput="filterStudentSelect('reprintStudent', 'reprintStudentSearch')">
+                                                </div>
+                                                <select id="reprintStudent" class="form-control" onchange="loadReprintPayments()">
+                                                    <option value="">-- Select Student --</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-12 col-md-4 mb-2">
+                                                <label class="form-label">Academic Session</label>
+                                                <select id="reprintSession" class="form-control" onchange="loadReprintPayments()">
+                                                    <option value="">-- Select Session --</option>
+                                                </select>
+                                            </div>
                                         </div>
-                                        <select id="detailsStudent" class="form-control" onchange="loadStudentFeeDetails()">
-                                            <option value="">-- Select Student --</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-12 col-md-4 mb-2">
-                                        <label class="form-label">Academic Session</label>
-                                        <input type="text" id="detailsSession" class="form-control" placeholder="e.g., 2024/2025" onchange="loadStudentFeeDetails()">
-                                    </div>
-                                </div>
 
-                                <div id="studentFeeDetailsContainer" style="overflow-x: auto;">
-                                    <p class="text-muted">Select a student to view fee details and payment history</p>
+                                        <div id="reprintPaymentsContainer" class="mt-3">
+                                            <p class="text-muted">Select a student to reprint receipt</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <!-- Reprint Receipt Section -->
-                <div class="row">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header bg-success text-white">
-                                <h5 class="mb-0">🖨️ Reprint Receipt</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row mb-3">
-                                    <div class="col-12 col-md-4 mb-2">
-                                        <label class="form-label">Select Class</label>
-                                        <select id="reprintStudentClass" class="form-control" onchange="loadReprintStudents()">
-                                            <option value="">-- Select Class --</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-12 col-md-4 mb-2">
-                                        <label class="form-label">Student Name</label>
-                                        <div class="input-group mb-2">
-                                            <input type="text" id="reprintStudentSearch" class="form-control" placeholder="Search student..." oninput="filterStudentSelect('reprintStudent', 'reprintStudentSearch')">
-                                        </div>
-                                        <select id="reprintStudent" class="form-control" onchange="loadReprintPayments()">
-                                            <option value="">-- Select Student --</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-12 col-md-4 mb-2">
-                                        <label class="form-label">Academic Session</label>
-                                        <input type="text" id="reprintSession" class="form-control" placeholder="e.g., 2024/2025" onchange="loadReprintPayments()">
-                                    </div>
-                                </div>
-
-                                <div id="reprintPaymentsContainer" class="mt-3">
-                                    <p class="text-muted">Select a student to reprint receipt</p>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -1403,5 +1502,68 @@
     
     <!-- App Script -->
     <script src="app.js"></script>
+    
+    <!-- Initialize Bootstrap Tabs -->
+    <script>
+        // Initialize all tab triggers with explicit click handlers
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOMContentLoaded event fired');
+            
+            // Check if Bootstrap is loaded
+            if (typeof bootstrap === 'undefined') {
+                console.error('Bootstrap is not loaded!');
+                return;
+            }
+            
+            // Find all tab buttons
+            const tabButtons = document.querySelectorAll('[data-bs-toggle="tab"]');
+            console.log('Found', tabButtons.length, 'tab triggers');
+            
+            tabButtons.forEach((button) => {
+                // Initialize Bootstrap tab
+                const bsTab = new bootstrap.Tab(button);
+                
+                // Add click handler to manually ensure tab shows
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('Tab clicked:', this.id);
+                    
+                    // Get the target pane ID
+                    const targetId = this.getAttribute('data-bs-target');
+                    console.log('Target ID:', targetId);
+                    
+                    // Hide all tab panes
+                    const allPanes = document.querySelectorAll('.fee-management-tab-content .tab-pane');
+                    allPanes.forEach(pane => {
+                        pane.classList.remove('show', 'active');
+                    });
+                    
+                    // Remove active from all buttons
+                    tabButtons.forEach(btn => {
+                        btn.classList.remove('active');
+                        btn.setAttribute('aria-selected', 'false');
+                    });
+                    
+                    // Show selected pane
+                    const targetPane = document.querySelector(targetId);
+                    if (targetPane) {
+                        targetPane.classList.add('show', 'active');
+                        console.log('Showing pane:', targetId);
+                    } else {
+                        console.error('Target pane not found:', targetId);
+                    }
+                    
+                    // Mark button as active
+                    this.classList.add('active');
+                    this.setAttribute('aria-selected', 'true');
+                    
+                    // Also call Bootstrap's show method
+                    bsTab.show();
+                });
+            });
+            
+            console.log('Tab initialization complete');
+        });
+    </script>
 </body>
 </html>

@@ -239,6 +239,7 @@ async function handleRegisterStudent(event) {
         const name = document.getElementById('studentName').value.trim();
         const email = document.getElementById('studentEmail').value.trim();
         const className = document.getElementById('studentClass').value;
+        const session = document.getElementById('studentSession').value;
         const dob = document.getElementById('studentDOB').value;
         const regNum = document.getElementById('studentRegNum').value.trim();
         const parentName = document.getElementById('studentParentName').value.trim();
@@ -246,8 +247,8 @@ async function handleRegisterStudent(event) {
         const phone = document.getElementById('studentPhone').value.trim();
         const address = document.getElementById('studentAddress').value.trim();
 
-        if (!name || !email || !className) {
-            showMessage('studentRegisterMessage', 'Name, email, and class are required', 'danger');
+        if (!name || !email || !className || !session) {
+            showMessage('studentRegisterMessage', 'Name, email, class, and session are required', 'danger');
             return;
         }
 
@@ -257,6 +258,7 @@ async function handleRegisterStudent(event) {
             name,
             email,
             class: className,
+            session: session,
             dateOfBirth: dob,
             registrationNumber: regNum, // Will be auto-generated if empty
             parentName,
@@ -589,6 +591,9 @@ async function loadDashboard() {
         
         // Initialize view results tab
         await loadViewResultsTab();
+        
+        // Populate session dropdowns
+        populateSessionDropdowns();
     } catch (error) {
         console.error('Dashboard load error:', error);
     }
@@ -649,6 +654,46 @@ async function loadStatistics() {
     }
 }
 
+/**
+ * Populate session dropdowns with years from 2015 to current year + 1
+ */
+function populateSessionDropdowns() {
+    const currentYear = new Date().getFullYear();
+    const startYear = 2015;
+    const endYear = currentYear + 1;
+    
+    const sessionOptions = [];
+    // Generate sessions from newest to oldest
+    for (let year = endYear - 1; year >= startYear; year--) {
+        const session = `${year}/${year + 1}`;
+        sessionOptions.push(session);
+    }
+    
+    // Helper function to populate a dropdown
+    const populateDropdown = (elementId) => {
+        const select = document.getElementById(elementId);
+        if (select) {
+            sessionOptions.forEach(session => {
+                const option = document.createElement('option');
+                option.value = session;
+                option.textContent = session;
+                select.appendChild(option);
+            });
+        }
+    };
+    
+    // Populate all session dropdowns
+    populateDropdown('resultsSession');
+    populateDropdown('viewResultsSession');
+    populateDropdown('studentSession');
+    populateDropdown('feeStructureSession');
+    populateDropdown('paymentSession');
+    populateDropdown('paymentSessionDropdown');
+    populateDropdown('summarySession');
+    populateDropdown('detailsSession');
+    populateDropdown('reprintSession');
+}
+
 // ============================================
 // OVERVIEW TAB
 // ============================================
@@ -657,17 +702,19 @@ async function loadOverviewTab() {
     try {
         const overview = await getTeacherDashboardOverview(currentUser);
         
-        // Load timetable
+        // Load timetable (if element exists)
         const timetableContent = document.getElementById('timetableContent');
-        if (overview.timetable && overview.timetable.length > 0) {
-            timetableContent.innerHTML = overview.timetable.map(item => `
-                <div class="mb-2 p-2 border-bottom">
-                    <strong>${item.class || 'N/A'}</strong> - ${item.subject || 'N/A'}<br>
-                    <small class="text-muted">${item.time || 'Time TBA'}</small>
-                </div>
-            `).join('');
-        } else {
-            timetableContent.innerHTML = '<p class="text-muted">No timetable available</p>';
+        if (timetableContent) {
+            if (overview.timetable && overview.timetable.length > 0) {
+                timetableContent.innerHTML = overview.timetable.map(item => `
+                    <div class="mb-2 p-2 border-bottom">
+                        <strong>${item.class || 'N/A'}</strong> - ${item.subject || 'N/A'}<br>
+                        <small class="text-muted">${item.time || 'Time TBA'}</small>
+                    </div>
+                `).join('');
+            } else {
+                timetableContent.innerHTML = '<p class="text-muted">No timetable available</p>';
+            }
         }
         
         // Load pending actions
@@ -693,11 +740,11 @@ async function loadOverviewTab() {
                     });
                     pendingContent.innerHTML = pendingHTML;
                 } else {
-                    pendingContent.innerHTML = '<p class="text-muted">✓ No pending actions</p>';
+                    pendingContent.innerHTML = '<p class="text-muted">✓ No pending action now</p>';
                 }
             } catch (error) {
                 console.error('Error loading pending teachers:', error);
-                pendingContent.innerHTML = '<p class="text-muted">No pending actions</p>';
+                pendingContent.innerHTML = '<p class="text-muted">✓ No pending action now</p>';
             }
         } else {
             // For regular teachers, show other pending actions
@@ -710,13 +757,15 @@ async function loadOverviewTab() {
                     </div>
                 `).join('');
             } else {
-                pendingContent.innerHTML = '<p class="text-muted">No pending actions</p>';
+                pendingContent.innerHTML = '<p class="text-muted">✓ No pending action now</p>';
             }
         }
     } catch (error) {
         console.error('Overview tab error:', error);
-        document.getElementById('timetableContent').innerHTML = '<p class="text-danger">Error loading timetable</p>';
-        document.getElementById('pendingContent').innerHTML = '<p class="text-danger">Error loading pending items</p>';
+        const pendingElement = document.getElementById('pendingContent');
+        if (pendingElement) {
+            pendingElement.innerHTML = '<p class="text-danger">Error loading pending items</p>';
+        }
     }
 }
 
@@ -1222,10 +1271,12 @@ function updateResultsRow(studentId) {
 async function submitResultForm() {
     const classId = document.getElementById('resultsClass').value;
     const subjectId = document.getElementById('resultsSubject').value;
+    const termId = document.getElementById('resultsTerm').value;
+    const sessionId = document.getElementById('resultsSession').value;
     const messageDiv = document.getElementById('resultsMessage');
     
-    if (!classId || !subjectId) {
-        messageDiv.innerHTML = '<div class="alert alert-warning">Please select class and subject</div>';
+    if (!classId || !subjectId || !termId || !sessionId) {
+        messageDiv.innerHTML = '<div class="alert alert-warning">Please select class, session, subject and term</div>';
         return;
     }
     
@@ -1249,6 +1300,7 @@ async function submitResultForm() {
                         subjectName: subjectName,
                         classId: classId,
                         termId: document.getElementById('resultsTerm').value,
+                        sessionId: document.getElementById('resultsSession').value,
                         ca1: result.ca1,
                         ca2: result.ca2,
                         ca3: result.ca3,
@@ -1353,7 +1405,13 @@ async function loadViewResultsSubjects() {
             });
         }
         
-        subjectSelect.innerHTML = '<option value="">-- Select Subject --</option>';
+        // For admin, include "All Subjects" option
+        if (isAdminUser) {
+            subjectSelect.innerHTML = '<option value="">-- All Subjects --</option>';
+        } else {
+            subjectSelect.innerHTML = '<option value="">-- Select Subject --</option>';
+        }
+        
         if (subjectsMap.size > 0) {
             subjectsMap.forEach((name, id) => {
                 const option = document.createElement('option');
@@ -1371,9 +1429,17 @@ async function loadViewResults() {
     const classId = document.getElementById('viewResultsClass').value;
     const subjectId = document.getElementById('viewResultsSubject').value;
     const termId = document.getElementById('viewResultsTerm').value;
+    const sessionId = document.getElementById('viewResultsSession').value;
     const content = document.getElementById('viewResultsContent');
     
-    if (!classId || !subjectId) {
+    // For admin, subject is optional; for teachers, it's required
+    if (!classId || !termId || !sessionId) {
+        content.innerHTML = '';
+        document.getElementById('printBtn').style.display = 'none';
+        return;
+    }
+    
+    if (currentUser.role !== 'admin' && !subjectId) {
         content.innerHTML = '';
         document.getElementById('printBtn').style.display = 'none';
         return;
@@ -1384,45 +1450,103 @@ async function loadViewResults() {
         
         // Use appropriate function based on user role
         if (currentUser.role === 'admin') {
-            results = await window.getAdminResults(currentUser, classId, subjectId, termId);
+            // For admin, if no subject is selected, get combined results
+            if (!subjectId) {
+                results = await window.getCombinedAdminResults(currentUser, classId, termId, sessionId);
+            } else {
+                results = await window.getAdminResults(currentUser, classId, subjectId, termId, sessionId);
+            }
         } else {
-            results = await window.getTeacherResults(currentUser, classId, subjectId, termId);
+            results = await window.getTeacherResults(currentUser, classId, subjectId, termId, sessionId);
         }
         
         if (results && results.length > 0) {
             document.getElementById('printBtn').style.display = 'block';
-            content.innerHTML = `
-                <div class="table-responsive">
-                    <table class="table table-sm table-striped">
-                        <thead>
-                            <tr>
-                                <th>Student</th>
-                                <th>CA1</th>
-                                <th>CA2</th>
-                                <th>CA3</th>
-                                <th>Exam</th>
-                                <th>CA Avg</th>
-                                <th>Final Score</th>
-                                <th>Grade</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${results.map((result) => `
+            
+            // Check if this is combined results (multiple subjects per student)
+            const isCombined = currentUser.role === 'admin' && !subjectId && results.length > 0;
+            
+            if (isCombined) {
+                // Group results by student for combined view
+                const studentResults = {};
+                results.forEach(result => {
+                    if (!studentResults[result.studentId]) {
+                        studentResults[result.studentId] = {
+                            studentId: result.studentId,
+                            studentName: result.studentName || 'Unknown',
+                            subjects: []
+                        };
+                    }
+                    studentResults[result.studentId].subjects.push({
+                        subjectId: result.subjectId,
+                        ...result
+                    });
+                });
+                
+                const uniqueSubjects = new Set();
+                results.forEach(r => uniqueSubjects.add(r.subjectId));
+                const subjectHeaders = Array.from(uniqueSubjects).sort();
+                
+                content.innerHTML = `
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead>
                                 <tr>
-                                    <td>${result.studentName || 'N/A'}</td>
-                                    <td>${result.ca1 || 0}</td>
-                                    <td>${result.ca2 || 0}</td>
-                                    <td>${result.ca3 || 0}</td>
-                                    <td>${result.exam || 0}</td>
-                                    <td>${result.caAverage ? result.caAverage.toFixed(2) : '0'}</td>
-                                    <td>${result.finalScore ? result.finalScore.toFixed(2) : '0'}</td>
-                                    <td><strong>${result.grade || 'N/A'}</strong></td>
+                                    <th>Student</th>
+                                    ${subjectHeaders.map(sub => `<th>${sub}</th>`).join('')}
+                                    <th>Total Subjects</th>
                                 </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
+                            </thead>
+                            <tbody>
+                                ${Object.values(studentResults).map((student) => `
+                                    <tr data-student-id="${student.studentId}" data-student-results='${JSON.stringify(student.subjects)}'>
+                                        <td><strong>${student.studentName}</strong></td>
+                                        ${subjectHeaders.map(sub => {
+                                            const subjectResult = student.subjects.find(s => s.subjectId === sub);
+                                            return `<td>${subjectResult ? `${subjectResult.grade || 'N/A'}` : '-'}</td>`;
+                                        }).join('')}
+                                        <td>${student.subjects.length}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } else {
+                // Single subject view (original format)
+                content.innerHTML = `
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Student</th>
+                                    <th>CA1</th>
+                                    <th>CA2</th>
+                                    <th>CA3</th>
+                                    <th>Exam</th>
+                                    <th>CA Avg</th>
+                                    <th>Final Score</th>
+                                    <th>Grade</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${results.map((result) => `
+                                    <tr>
+                                        <td>${result.studentName || 'N/A'}</td>
+                                        <td>${result.ca1 || 0}</td>
+                                        <td>${result.ca2 || 0}</td>
+                                        <td>${result.ca3 || 0}</td>
+                                        <td>${result.exam || 0}</td>
+                                        <td>${result.caAverage ? result.caAverage.toFixed(2) : '0'}</td>
+                                        <td>${result.finalScore ? result.finalScore.toFixed(2) : '0'}</td>
+                                        <td><strong>${result.grade || 'N/A'}</strong></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
         } else {
             document.getElementById('printBtn').style.display = 'none';
             content.innerHTML = '<p class="text-muted">No results found</p>';
@@ -1436,52 +1560,219 @@ async function loadViewResults() {
 
 function printResults() {
     const classId = document.getElementById('viewResultsClass').value;
-    const subjectId = document.getElementById('viewResultsSubject').value;
     const termId = document.getElementById('viewResultsTerm').value;
+    const sessionId = document.getElementById('viewResultsSession').value;
     const table = document.querySelector('#viewResultsContent table');
     
     if (!table) {
         alert('No results to print');
         return;
     }
-    
-    const printWindow = window.open('', 'PRINT', 'height=600,width=800');
-    const schoolName = 'Abimbola School Management System';
-    
-    printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Results Print</title>
-            <style>
-                body { font-family: Arial, sans-serif; margin: 20px; }
-                .header { text-align: center; margin-bottom: 20px; }
-                .header h2 { margin: 5px 0; }
-                .header p { margin: 2px 0; color: #666; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                th { background-color: #667eea; color: white; font-weight: bold; }
-                tr:nth-child(even) { background-color: #f9f9f9; }
-                .footer { margin-top: 30px; font-size: 12px; color: #666; }
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h2>${schoolName}</h2>
-                <p>Results Sheet</p>
-                <p>Term: ${termId.replace('term', 'Term ')} | Date: ${new Date().toLocaleDateString()}</p>
-            </div>
-            ${table.outerHTML}
-            <div class="footer">
-                <p>Printed on: ${new Date().toLocaleString()}</p>
-            </div>
-        </body>
-        </html>
-    `);
-    
-    printWindow.document.close();
-    printWindow.print();
+
+    // Get student results from table
+    const rows = table.querySelectorAll('tbody tr');
+    if (rows.length === 0) {
+        alert('No results to print');
+        return;
+    }
+
+    // Detect table type by checking headers
+    const headers = table.querySelectorAll('thead th');
+    const headerTexts = Array.from(headers).map(h => h.textContent.trim());
+    const isDetailedView = headerTexts.includes('CA1');
+
+    // Create print for each student
+    for (let index = 0; index < rows.length; index++) {
+        const row = rows[index];
+        const cells = row.querySelectorAll('td');
+        const studentName = cells[0]?.textContent.trim() || 'Unknown';
+        const studentId = row.dataset.studentId;
+        const resultsDataJson = row.dataset.studentResults;
+        let subjectsHtml = '';
+        
+        if (isDetailedView) {
+            // For detailed view with CA1, CA2, CA3, Exam, CA Avg, Final Score, Grade
+            const ca1 = cells[1]?.textContent.trim() || '0';
+            const ca2 = cells[2]?.textContent.trim() || '0';
+            const ca3 = cells[3]?.textContent.trim() || '0';
+            const exam = cells[4]?.textContent.trim() || '0';
+            const caAvg = cells[5]?.textContent.trim() || '0';
+            const finalScore = cells[6]?.textContent.trim() || '0';
+            const grade = cells[7]?.textContent.trim() || 'N/A';
+            
+            // Get subject name from view dropdown
+            const subjectId = document.getElementById('viewResultsSubject')?.value || 'Subject';
+            subjectsHtml = `
+                <tr>
+                    <td>${subjectId}</td>
+                    <td style="text-align: center;">${ca1}</td>
+                    <td style="text-align: center;">${ca2}</td>
+                    <td style="text-align: center;">${ca3}</td>
+                    <td style="text-align: center;">${exam}</td>
+                    <td style="text-align: center;">${caAvg}</td>
+                    <td style="text-align: center;">${finalScore}</td>
+                    <td style="text-align: center;"><strong>${grade}</strong></td>
+                </tr>
+            `;
+        } else if (resultsDataJson) {
+            // For combined view, use the stored results data
+            try {
+                const subjectsData = JSON.parse(resultsDataJson);
+                subjectsData.forEach(subject => {
+                    subjectsHtml += `
+                        <tr>
+                            <td>${subject.subjectId || 'Subject'}</td>
+                            <td style="text-align: center;">${subject.ca1 || 0}</td>
+                            <td style="text-align: center;">${subject.ca2 || 0}</td>
+                            <td style="text-align: center;">${subject.ca3 || 0}</td>
+                            <td style="text-align: center;">${subject.exam || 0}</td>
+                            <td style="text-align: center;">${subject.caAverage ? subject.caAverage.toFixed(2) : 0}</td>
+                            <td style="text-align: center;">${subject.finalScore ? subject.finalScore.toFixed(2) : 0}</td>
+                            <td style="text-align: center;"><strong>${subject.grade || 'N/A'}</strong></td>
+                        </tr>
+                    `;
+                });
+            } catch (error) {
+                console.error('Error parsing results data:', error);
+            }
+        }
+
+        const printWindow = window.open('', `PRINT_${index}`, 'height=1000,width=900');
+        const schoolName = 'Abimbola School';
+        const termText = termId.replace('term1', 'First Term').replace('term2', 'Second Term').replace('term3', 'Third Term');
+        
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Result Slip - ${studentName}</title>
+                <style>
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body { font-family: Arial, sans-serif; background: white; }
+                    .page { width: 210mm; height: 297mm; margin: 0 auto; padding: 20mm; background: white; page-break-after: always; }
+                    .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 15px; }
+                    .school-name { font-size: 22px; font-weight: bold; color: #333; margin-bottom: 5px; }
+                    .school-info { font-size: 12px; color: #666; margin-bottom: 10px; }
+                    .result-title { font-size: 16px; font-weight: bold; color: #667eea; margin-top: 10px; }
+                    
+                    .student-info { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+                    .info-box { display: flex; flex-direction: column; }
+                    .info-label { font-size: 11px; color: #666; font-weight: bold; text-transform: uppercase; }
+                    .info-value { font-size: 13px; font-weight: bold; margin-top: 3px; border-bottom: 1px solid #ddd; padding-bottom: 3px; }
+                    
+                    .subjects-section { margin-top: 20px; }
+                    .section-title { font-size: 14px; font-weight: bold; color: #333; margin-bottom: 10px; border-bottom: 2px solid #667eea; padding-bottom: 5px; }
+                    
+                    .subjects-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 10px; }
+                    .subjects-table th { background-color: #667eea; color: white; padding: 6px 4px; text-align: center; font-size: 10px; font-weight: bold; }
+                    .subjects-table td { border: 1px solid #ddd; padding: 6px 4px; font-size: 10px; }
+                    .subjects-table tr:nth-child(even) { background-color: #f9f9f9; }
+                    .score-col { text-align: center; width: 40px; }
+                    
+                    .remark-section { margin-top: 20px; }
+                    .remark-box { border: 1px solid #ddd; padding: 10px; min-height: 50px; margin-bottom: 15px; }
+                    .remark-label { font-size: 11px; font-weight: bold; color: #666; margin-bottom: 5px; }
+                    
+                    .signatures { margin-top: 25px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+                    .sig-box { text-align: center; }
+                    .sig-line { border-top: 1px solid #333; margin-top: 50px; padding-top: 5px; }
+                    .sig-label { font-size: 11px; font-weight: bold; text-transform: uppercase; }
+                    
+                    .stamp-section { margin-top: 20px; text-align: center; }
+                    .stamp-box { border: 2px dashed #ddd; width: 100px; height: 100px; margin: 0 auto; display: flex; align-items: center; justify-content: center; color: #999; font-size: 11px; }
+                    
+                    .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #999; }
+                    
+                    @media print {
+                        body { margin: 0; padding: 0; }
+                        .page { margin: 0; padding: 20mm; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="page">
+                    <div class="header">
+                        <div class="school-name">${schoolName}</div>
+                        <div class="result-title">STUDENT RESULT SLIP</div>
+                    </div>
+                    
+                    <div class="student-info">
+                        <div class="info-box">
+                            <span class="info-label">Student Name</span>
+                            <span class="info-value">${studentName}</span>
+                        </div>
+                        <div class="info-box">
+                            <span class="info-label">Class</span>
+                            <span class="info-value">${classId}</span>
+                        </div>
+                        <div class="info-box">
+                            <span class="info-label">Session</span>
+                            <span class="info-value">${sessionId}</span>
+                        </div>
+                        <div class="info-box">
+                            <span class="info-label">Term</span>
+                            <span class="info-value">${termText}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="subjects-section">
+                        <div class="section-title">Academic Performance - Detailed Scores</div>
+                        <table class="subjects-table">
+                            <thead>
+                                <tr>
+                                    <th>Subject</th>
+                                    <th class="score-col">CA1</th>
+                                    <th class="score-col">CA2</th>
+                                    <th class="score-col">CA3</th>
+                                    <th class="score-col">Exam</th>
+                                    <th class="score-col">CA Avg</th>
+                                    <th class="score-col">Final Score</th>
+                                    <th class="score-col">Grade</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${subjectsHtml}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="remark-section">
+                        <div class="section-title">Class Teacher's Remark</div>
+                        <div class="remark-box"></div>
+                    </div>
+                    
+                    <div class="signatures">
+                        <div class="sig-box">
+                            <div class="sig-line">
+                                <div class="sig-label">Class Teacher</div>
+                            </div>
+                        </div>
+                        <div class="sig-box">
+                            <div class="sig-line">
+                                <div class="sig-label">Admin Signature</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="stamp-section" style="margin-top: 30px;">
+                        <div class="section-title">School Stamp</div>
+                        <div class="stamp-box">School Stamp</div>
+                    </div>
+                    
+                    <div class="footer">
+                        <p>Printed on: ${new Date().toLocaleString()}</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `);
+        
+        printWindow.document.close();
+        printWindow.print();
+    }
 }
+
+
 
 // ============================================
 // ANNOUNCEMENTS TAB
@@ -1756,16 +2047,25 @@ function showTeachersTab(e) {
 
 function showStudentsTab(e) {
     e.preventDefault();
-    document.getElementById('studentsTab').classList.add('show', 'active');
-    document.getElementById('teachersTab').classList.remove('show', 'active');
+    const studentsTab = document.getElementById('studentsTab');
+    const teachersTab = document.getElementById('teachersTab');
+    
+    studentsTab.classList.add('show', 'active');
+    teachersTab.classList.remove('show', 'active');
+    
     // Update active tab styling
     document.querySelectorAll('#adminTabs .nav-link').forEach(link => link.classList.remove('active'));
     e.target.classList.add('active');
     
-    // Show registration form only if user is admin
+    // Always show registration form on Students tab
     const adminForm = document.getElementById('adminStudentForm');
     if (adminForm) {
-        adminForm.style.display = (currentUser && currentUser.role === 'admin') ? '' : 'none';
+        adminForm.style.display = 'block';
+        // Scroll the form card header into view
+        const formCard = adminForm.querySelector('.card');
+        if (formCard) {
+            formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     }
     
     // Load students when tab is shown
@@ -3138,9 +3438,6 @@ async function handleRecordPayment(event) {
         const studentDoc = await window.db.collection('students').doc(studentId).get();
         const studentData = studentDoc.data();
         
-        // Get fee record for balance
-        const feeRecord = await getStudentFeeRecord(studentId, term, session);
-        
         // Prepare admin/bursar info (name only, no email for security)
         const adminInfo = {
             uid: currentUser.uid,
@@ -3153,12 +3450,12 @@ async function handleRecordPayment(event) {
             method,
             receivedBy: adminName,
             reference
-        }, adminInfo);
+        }, adminInfo, session);
         
         showMessage(messageEl, '✅ Payment recorded successfully!', 'success');
         
-        // Calculate new balance
-        const newBalance = feeRecord.balance - amount;
+        // Get the updated fee record after payment is recorded
+        const feeRecord = await getStudentFeeRecord(studentId, term, session);
         
         // Prepare receipt data
         window.receiptData = {
@@ -3167,7 +3464,7 @@ async function handleRecordPayment(event) {
             session: session,
             term: term,
             amountPaid: amount,
-            balance: newBalance > 0 ? newBalance : 0,
+            balance: feeRecord ? feeRecord.balance : 0,
             adminName: adminName,
             paymentDate: date,
             paymentMethod: method,

@@ -9,6 +9,7 @@ const getTeacherDashboardOverview = async (user) => {
     const assignedSubjects = user.assignedSubjects || [];
     
     let totalStudents = 0;
+    let pendingActions = [];
 
     // If admin, count all students
     if (user.role === 'admin') {
@@ -25,6 +26,30 @@ const getTeacherDashboardOverview = async (user) => {
         console.error('Error counting students for teacher:', error);
         totalStudents = 0;
       }
+
+      // Check for pending attendance - for each assigned class
+      const today = new Date().toISOString().split('T')[0];
+      
+      for (const classId of assignedClasses) {
+        try {
+          const attendanceId = `${classId}_${today}`;
+          const attendanceDoc = await window.db.collection('attendance').doc(attendanceId).get();
+          
+          // If attendance is NOT marked (by ANY teacher), add to pending actions
+          if (!attendanceDoc.exists) {
+            pendingActions.push({
+              title: `Register for ${classId}`,
+              description: `Attendance has not been marked for ${classId} today`,
+              type: 'attendance',
+              classId: classId,
+              actionRequired: true
+            });
+          }
+          // If attendance IS marked (by any teacher), it's cleared - no action needed
+        } catch (error) {
+          console.error(`Error checking attendance for ${classId}:`, error);
+        }
+      }
     }
 
     return {
@@ -33,7 +58,7 @@ const getTeacherDashboardOverview = async (user) => {
       totalSubjects: assignedSubjects.length,
       announcements: [],
       timetable: [],
-      pendingActions: []
+      pendingActions: pendingActions
     };
   } catch (error) {
     throw new Error(`Failed to fetch dashboard overview: ${error.message}`);

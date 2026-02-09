@@ -175,7 +175,7 @@ const getStudentAllFeeRecords = async (studentId) => {
  * @param {string} term
  * @param {object} payment - { amount, date, method, receivedBy, reference }
  */
-const recordPayment = async (studentId, term, payment, admin) => {
+const recordPayment = async (studentId, term, payment, admin, session) => {
   try {
     if (!window.db) throw new Error('Firebase not initialized');
     
@@ -207,7 +207,7 @@ const recordPayment = async (studentId, term, payment, admin) => {
       .set(paymentData);
     
     // Update fee record
-    await updateFeeBalance(studentId, term);
+    await updateFeeBalance(studentId, term, session);
     
     return { ...paymentData };
   } catch (error) {
@@ -219,7 +219,7 @@ const recordPayment = async (studentId, term, payment, admin) => {
  * Calculate and update fee balance and status
  * Called automatically after each payment
  */
-const updateFeeBalance = async (studentId, term) => {
+const updateFeeBalance = async (studentId, term, session) => {
   try {
     if (!window.db) throw new Error('Firebase not initialized');
     
@@ -230,8 +230,41 @@ const updateFeeBalance = async (studentId, term) => {
       .collection('fees')
       .doc(term);
     
-    const feeDoc = await feeRef.get();
-    if (!feeDoc.exists) throw new Error('Fee record not found');
+    let feeDoc = await feeRef.get();
+    if (!feeDoc.exists) {
+      // Fee record doesn't exist, create a minimal one if session is provided
+      if (session) {
+        // Try to get the student info and fee structure to initialize
+        const studentDoc = await window.db.collection('students').doc(studentId).get();
+        const studentData = studentDoc.data();
+        
+        if (studentData && studentData.class) {
+          // Get the fee structure for this class/term/session
+          const feeStructure = await getFeeStructure(studentData.class, term, session);
+          if (feeStructure) {
+            const totalFee = feeStructure.totalFee || 0;
+            // Initialize the fee record
+            await feeRef.set({
+              classId: studentData.class,
+              term,
+              session,
+              totalFee,
+              totalPaid: 0,
+              balance: totalFee,
+              status: 'Unpaid',
+              createdAt: window.firebase.firestore.Timestamp.now(),
+              updatedAt: window.firebase.firestore.Timestamp.now(),
+            });
+          }
+        }
+      }
+      
+      // Re-fetch the fee document
+      feeDoc = await feeRef.get();
+      if (!feeDoc.exists) {
+        throw new Error('Fee record not found and could not be created');
+      }
+    }
     
     const feeData = feeDoc.data();
     
@@ -407,6 +440,7 @@ const getStudentsWithPendingFees = async (classId, term, session) => {
 
 /**
  * Bulk initialize fees for all students in a class (when setting fee structure)
+ * IMPORTANT: Preserves existing payment history when updating fee structures
  */
 const bulkInitializeStudentFees = async (classId, term, totalFee, session) => {
   try {
@@ -419,25 +453,54 @@ const bulkInitializeStudentFees = async (classId, term, totalFee, session) => {
     
     const batch = window.db.batch();
     
-    studentsSnapshot.forEach(studentDoc => {
+    for (const studentDoc of studentsSnapshot.docs) {
       const feeRef = window.db
         .collection('students')
         .doc(studentDoc.id)
         .collection('fees')
         .doc(term);
       
-      batch.set(feeRef, {
-        classId,
-        term,
-        session,
-        totalFee,
-        totalPaid: 0,
-        balance: totalFee,
-        status: 'Unpaid',
-        createdAt: window.firebase.firestore.Timestamp.now(),
-        updatedAt: window.firebase.firestore.Timestamp.now(),
-      });
-    });
+      // Check if fee record already exists
+      const existingFeeDoc = await feeRef.get();
+      
+      if (existingFeeDoc.exists) {
+        // Fee structure already exists - this is an UPDATE
+        // Preserve payment history and recalculate balance
+        const existingData = existingFeeDoc.data();
+        const totalPaid = existingData.totalPaid || 0;
+        const newBalance = totalFee - totalPaid;
+        
+        // Determine status based on new balance
+        let newStatus = 'Unpaid';
+        if (newBalance === 0) {
+          newStatus = 'Paid';
+        } else if (totalPaid > 0) {
+          newStatus = 'Part Payment';
+        }
+        
+        // Use merge to preserve payment history subcollection
+        batch.update(feeRef, {
+          totalFee,           // Update the fee amount
+          balance: newBalance, // Recalculate balance
+          status: newStatus,   // Update status based on new fee amount
+          updatedAt: window.firebase.firestore.Timestamp.now(),
+          // Keep session, totalPaid, and payment history intact
+        });
+      } else {
+        // New fee record - first time initialization
+        batch.set(feeRef, {
+          classId,
+          term,
+          session,
+          totalFee,
+          totalPaid: 0,
+          balance: totalFee,
+          status: 'Unpaid',
+          createdAt: window.firebase.firestore.Timestamp.now(),
+          updatedAt: window.firebase.firestore.Timestamp.now(),
+        });
+      }
+    }
     
     await batch.commit();
     return { studentsInitialized: studentsSnapshot.size };
