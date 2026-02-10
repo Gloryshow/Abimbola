@@ -116,6 +116,20 @@ const updateUserPassword = async (currentPassword, newPassword) => {
 };
 
 /**
+ * Send password reset email
+ */
+const sendPasswordResetEmail = async (email) => {
+  try {
+    if (!window.auth) {
+      throw new Error('Firebase Auth not initialized');
+    }
+    await window.auth.sendPasswordResetEmail(email);
+  } catch (error) {
+    throw new Error(`Failed to send reset email: ${error.message}`);
+  }
+};
+
+/**
  * Monitor auth state changes
  */
 const onAuthChange = (callback) => {
@@ -144,4 +158,5 @@ window.loginUser = loginUser;
 window.getUserData = getUserData;
 window.logoutUser = logoutUser;
 window.updateUserPassword = updateUserPassword;
+window.sendPasswordResetEmail = sendPasswordResetEmail;
 window.onAuthChange = onAuthChange;

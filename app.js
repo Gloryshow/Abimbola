@@ -162,6 +162,45 @@ function toggleAuthForm(event) {
     }
 }
 
+function openForgotPasswordModal(event) {
+    event.preventDefault();
+    // Reset modal to step 1
+    document.getElementById('forgotPasswordStep1').style.display = 'block';
+    document.getElementById('forgotPasswordStep2').style.display = 'none';
+    document.getElementById('forgotPasswordEmail').value = '';
+    document.getElementById('forgotPasswordError').innerHTML = '';
+    document.getElementById('forgotPasswordSendBtn').style.display = 'block';
+    document.getElementById('forgotPasswordCloseBtn').textContent = 'Close';
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('forgotPasswordModal'));
+    modal.show();
+}
+
+async function handleForgotPassword() {
+    const email = document.getElementById('forgotPasswordEmail').value.trim();
+    const errorDiv = document.getElementById('forgotPasswordError');
+    
+    if (!email) {
+        showError(errorDiv, 'Please enter your email address');
+        return;
+    }
+    
+    try {
+        showError(errorDiv, 'Sending reset email...');
+        await sendPasswordResetEmail(email);
+        
+        // Show success message
+        document.getElementById('forgotPasswordStep1').style.display = 'none';
+        document.getElementById('forgotPasswordStep2').style.display = 'block';
+        document.getElementById('forgotPasswordSendBtn').style.display = 'none';
+        document.getElementById('forgotPasswordCloseBtn').textContent = 'Done';
+    } catch (error) {
+        showError(errorDiv, error.message || 'Failed to send reset email');
+        console.error('Forgot password error:', error);
+    }
+}
+
 function showPendingApproval() {
     const loginBox = document.getElementById('loginBox');
     const signupBox = document.getElementById('signupBox');
@@ -1581,7 +1620,13 @@ function printResults() {
     const headerTexts = Array.from(headers).map(h => h.textContent.trim());
     const isDetailedView = headerTexts.includes('CA1');
 
-    // Create print for each student
+    const schoolName = 'Abimbola School';
+    const termText = termId.replace('term1', 'First Term').replace('term2', 'Second Term').replace('term3', 'Third Term');
+    
+    // Build all student pages HTML
+    let allPagesHtml = '';
+    
+    // Create print page for each student
     for (let index = 0; index < rows.length; index++) {
         const row = rows[index];
         const cells = row.querySelectorAll('td');
@@ -1636,140 +1681,146 @@ function printResults() {
                 console.error('Error parsing results data:', error);
             }
         }
-
-        const printWindow = window.open('', `PRINT_${index}`, 'height=1000,width=900');
-        const schoolName = 'Abimbola School';
-        const termText = termId.replace('term1', 'First Term').replace('term2', 'Second Term').replace('term3', 'Third Term');
         
-        printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Result Slip - ${studentName}</title>
-                <style>
-                    * { margin: 0; padding: 0; box-sizing: border-box; }
-                    body { font-family: Arial, sans-serif; background: white; }
-                    .page { width: 210mm; height: 297mm; margin: 0 auto; padding: 20mm; background: white; page-break-after: always; }
-                    .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 15px; }
-                    .school-name { font-size: 22px; font-weight: bold; color: #333; margin-bottom: 5px; }
-                    .school-info { font-size: 12px; color: #666; margin-bottom: 10px; }
-                    .result-title { font-size: 16px; font-weight: bold; color: #667eea; margin-top: 10px; }
-                    
-                    .student-info { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-                    .info-box { display: flex; flex-direction: column; }
-                    .info-label { font-size: 11px; color: #666; font-weight: bold; text-transform: uppercase; }
-                    .info-value { font-size: 13px; font-weight: bold; margin-top: 3px; border-bottom: 1px solid #ddd; padding-bottom: 3px; }
-                    
-                    .subjects-section { margin-top: 20px; }
-                    .section-title { font-size: 14px; font-weight: bold; color: #333; margin-bottom: 10px; border-bottom: 2px solid #667eea; padding-bottom: 5px; }
-                    
-                    .subjects-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 10px; }
-                    .subjects-table th { background-color: #667eea; color: white; padding: 6px 4px; text-align: center; font-size: 10px; font-weight: bold; }
-                    .subjects-table td { border: 1px solid #ddd; padding: 6px 4px; font-size: 10px; }
-                    .subjects-table tr:nth-child(even) { background-color: #f9f9f9; }
-                    .score-col { text-align: center; width: 40px; }
-                    
-                    .remark-section { margin-top: 20px; }
-                    .remark-box { border: 1px solid #ddd; padding: 10px; min-height: 50px; margin-bottom: 15px; }
-                    .remark-label { font-size: 11px; font-weight: bold; color: #666; margin-bottom: 5px; }
-                    
-                    .signatures { margin-top: 25px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
-                    .sig-box { text-align: center; }
-                    .sig-line { border-top: 1px solid #333; margin-top: 50px; padding-top: 5px; }
-                    .sig-label { font-size: 11px; font-weight: bold; text-transform: uppercase; }
-                    
-                    .stamp-section { margin-top: 20px; text-align: center; }
-                    .stamp-box { border: 2px dashed #ddd; width: 100px; height: 100px; margin: 0 auto; display: flex; align-items: center; justify-content: center; color: #999; font-size: 11px; }
-                    
-                    .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #999; }
-                    
-                    @media print {
-                        body { margin: 0; padding: 0; }
-                        .page { margin: 0; padding: 20mm; }
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="page">
-                    <div class="header">
-                        <div class="school-name">${schoolName}</div>
-                        <div class="result-title">STUDENT RESULT SLIP</div>
+        allPagesHtml += `
+            <div class="page">
+                <div class="header">
+                    <div class="school-name">${schoolName}</div>
+                    <div class="result-title">STUDENT RESULT SLIP</div>
+                </div>
+                
+                <div class="student-info">
+                    <div class="info-box">
+                        <span class="info-label">Student Name</span>
+                        <span class="info-value">${studentName}</span>
                     </div>
-                    
-                    <div class="student-info">
-                        <div class="info-box">
-                            <span class="info-label">Student Name</span>
-                            <span class="info-value">${studentName}</span>
-                        </div>
-                        <div class="info-box">
-                            <span class="info-label">Class</span>
-                            <span class="info-value">${classId}</span>
-                        </div>
-                        <div class="info-box">
-                            <span class="info-label">Session</span>
-                            <span class="info-value">${sessionId}</span>
-                        </div>
-                        <div class="info-box">
-                            <span class="info-label">Term</span>
-                            <span class="info-value">${termText}</span>
-                        </div>
+                    <div class="info-box">
+                        <span class="info-label">Class</span>
+                        <span class="info-value">${classId}</span>
                     </div>
-                    
-                    <div class="subjects-section">
-                        <div class="section-title">Academic Performance - Detailed Scores</div>
-                        <table class="subjects-table">
-                            <thead>
-                                <tr>
-                                    <th>Subject</th>
-                                    <th class="score-col">CA1</th>
-                                    <th class="score-col">CA2</th>
-                                    <th class="score-col">CA3</th>
-                                    <th class="score-col">Exam</th>
-                                    <th class="score-col">CA Avg</th>
-                                    <th class="score-col">Final Score</th>
-                                    <th class="score-col">Grade</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${subjectsHtml}
-                            </tbody>
-                        </table>
+                    <div class="info-box">
+                        <span class="info-label">Session</span>
+                        <span class="info-value">${sessionId}</span>
                     </div>
-                    
-                    <div class="remark-section">
-                        <div class="section-title">Class Teacher's Remark</div>
-                        <div class="remark-box"></div>
-                    </div>
-                    
-                    <div class="signatures">
-                        <div class="sig-box">
-                            <div class="sig-line">
-                                <div class="sig-label">Class Teacher</div>
-                            </div>
-                        </div>
-                        <div class="sig-box">
-                            <div class="sig-line">
-                                <div class="sig-label">Admin Signature</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="stamp-section" style="margin-top: 30px;">
-                        <div class="section-title">School Stamp</div>
-                        <div class="stamp-box">School Stamp</div>
-                    </div>
-                    
-                    <div class="footer">
-                        <p>Printed on: ${new Date().toLocaleString()}</p>
+                    <div class="info-box">
+                        <span class="info-label">Term</span>
+                        <span class="info-value">${termText}</span>
                     </div>
                 </div>
-            </body>
-            </html>
-        `);
-        
-        printWindow.document.close();
-        printWindow.print();
+                
+                <div class="subjects-section">
+                    <div class="section-title">Academic Performance - Detailed Scores</div>
+                    <table class="subjects-table">
+                        <thead>
+                            <tr>
+                                <th>Subject</th>
+                                <th class="score-col">CA1</th>
+                                <th class="score-col">CA2</th>
+                                <th class="score-col">CA3</th>
+                                <th class="score-col">Exam</th>
+                                <th class="score-col">CA Avg</th>
+                                <th class="score-col">Final Score</th>
+                                <th class="score-col">Grade</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${subjectsHtml}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="remark-section">
+                    <div class="section-title">Class Teacher's Remark</div>
+                    <div class="remark-box"></div>
+                </div>
+                
+                <div class="signatures">
+                    <div class="sig-box">
+                        <div class="sig-line">
+                            <div class="sig-label">Class Teacher</div>
+                        </div>
+                    </div>
+                    <div class="sig-box">
+                        <div class="sig-line">
+                            <div class="sig-label">Admin Signature</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="stamp-section" style="margin-top: 30px;">
+                    <div class="section-title">School Stamp</div>
+                    <div class="stamp-box">School Stamp</div>
+                </div>
+                
+                <div class="footer">
+                    <p>Printed on: ${new Date().toLocaleString()}</p>
+                </div>
+            </div>
+        `;
     }
+    
+    // Open a single print window with all pages
+    const printWindow = window.open('', 'PRINT_RESULTS', 'height=1000,width=900');
+    
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Result Slips</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { font-family: Arial, sans-serif; background: white; }
+                .page { width: 210mm; height: 297mm; margin: 0 auto; padding: 20mm; background: white; }
+                .page:not(:last-child) { page-break-after: always; }
+                .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 15px; }
+                .school-name { font-size: 22px; font-weight: bold; color: #333; margin-bottom: 5px; }
+                .school-info { font-size: 12px; color: #666; margin-bottom: 10px; }
+                .result-title { font-size: 16px; font-weight: bold; color: #667eea; margin-top: 10px; }
+                
+                .student-info { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+                .info-box { display: flex; flex-direction: column; }
+                .info-label { font-size: 11px; color: #666; font-weight: bold; text-transform: uppercase; }
+                .info-value { font-size: 13px; font-weight: bold; margin-top: 3px; border-bottom: 1px solid #ddd; padding-bottom: 3px; }
+                
+                .subjects-section { margin-top: 20px; }
+                .section-title { font-size: 14px; font-weight: bold; color: #333; margin-bottom: 10px; border-bottom: 2px solid #667eea; padding-bottom: 5px; }
+                
+                .subjects-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 10px; }
+                .subjects-table th { background-color: #667eea; color: white; padding: 6px 4px; text-align: center; font-size: 10px; font-weight: bold; }
+                .subjects-table td { border: 1px solid #ddd; padding: 6px 4px; font-size: 10px; }
+                .subjects-table tr:nth-child(even) { background-color: #f9f9f9; }
+                .score-col { text-align: center; width: 40px; }
+                
+                .remark-section { margin-top: 20px; }
+                .remark-box { border: 1px solid #ddd; padding: 10px; min-height: 50px; margin-bottom: 15px; }
+                .remark-label { font-size: 11px; font-weight: bold; color: #666; margin-bottom: 5px; }
+                
+                .signatures { margin-top: 25px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+                .sig-box { text-align: center; }
+                .sig-line { border-top: 1px solid #333; margin-top: 50px; padding-top: 5px; }
+                .sig-label { font-size: 11px; font-weight: bold; text-transform: uppercase; }
+                
+                .stamp-section { margin-top: 20px; text-align: center; }
+                .stamp-box { border: 2px dashed #ddd; width: 100px; height: 100px; margin: 0 auto; display: flex; align-items: center; justify-content: center; color: #999; font-size: 11px; }
+                
+                .footer { margin-top: 20px; text-align: center; font-size: 10px; color: #999; }
+                
+                @media print {
+                    body { margin: 0; padding: 0; }
+                    .page { margin: 0; padding: 20mm; }
+                }
+            </style>
+        </head>
+        <body>
+            ${allPagesHtml}
+        </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    setTimeout(() => {
+        printWindow.print();
+    }, 250);
 }
 
 
@@ -2009,7 +2060,10 @@ async function loadAdminPanel() {
                                 <p class="card-text mb-1"><small><strong>Role:</strong> <span class="badge bg-info">${teacher.role || 'teacher'}</span></small></p>
                                 <p class="card-text mb-1"><small><strong>Classes:</strong> ${classes}</small></p>
                                 <p class="card-text mb-2"><small><strong>Subjects:</strong> ${subjects}</small></p>
-                                <button onclick="openTeacherAssignmentModal('${teacher.uid}')" class="btn btn-sm btn-primary">Edit Assignment</button>
+                                <div class="d-flex gap-2">
+                                    <button onclick="openTeacherAssignmentModal('${teacher.uid}')" class="btn btn-sm btn-primary">Edit Assignment</button>
+                                    <button onclick="confirmDeleteTeacher('${teacher.uid}', '${teacher.name.replace(/'/g, "\\'")}', '${teacher.email}')" class="btn btn-sm btn-danger">Delete</button>
+                                </div>
                             </div>
                         </div>
                     `;
@@ -2061,6 +2115,8 @@ function showStudentsTab(e) {
     const adminForm = document.getElementById('adminStudentForm');
     if (adminForm) {
         adminForm.style.display = 'block';
+        // Ensure session dropdowns are populated
+        populateSessionDropdowns();
         // Scroll the form card header into view
         const formCard = adminForm.querySelector('.card');
         if (formCard) {
@@ -2822,11 +2878,52 @@ async function loadDefaultFeeSummary() {
                             studentId: studentDoc.id,
                             studentName: student.name,
                             classId: student.class,
+                            term: term,
                             ...feeRecord,
                         });
+                    } else {
+                        // Student exists but has no fee record - get fee structure for their class/term
+                        try {
+                            const feeStructure = await getFeeStructure(student.class, term, latestSession);
+                            if (feeStructure && feeStructure.totalFee) {
+                                totalExpected += feeStructure.totalFee;
+                                // Add to records with 0 paid
+                                allFeeRecords.push({
+                                    studentId: studentDoc.id,
+                                    studentName: student.name,
+                                    classId: student.class,
+                                    term: term,
+                                    totalFee: feeStructure.totalFee,
+                                    totalPaid: 0,
+                                    balance: feeStructure.totalFee,
+                                    status: 'Not Paid'
+                                });
+                            }
+                        } catch (err) {
+                            console.log(`No fee structure found for ${student.class}, ${term}, ${latestSession}`);
+                        }
                     }
                 } catch (e) {
-                    // Fee record doesn't exist for this student/term, continue
+                    // Fee record lookup error, try to get fee structure
+                    try {
+                        const feeStructure = await getFeeStructure(student.class, term, latestSession);
+                        if (feeStructure && feeStructure.totalFee) {
+                            totalExpected += feeStructure.totalFee;
+                            // Add to records with 0 paid
+                            allFeeRecords.push({
+                                studentId: studentDoc.id,
+                                studentName: student.name,
+                                classId: student.class,
+                                term: term,
+                                totalFee: feeStructure.totalFee,
+                                totalPaid: 0,
+                                balance: feeStructure.totalFee,
+                                status: 'Not Paid'
+                            });
+                        }
+                    } catch (err) {
+                        console.log(`No fee structure found for ${student.class}, ${term}, ${latestSession}`);
+                    }
                 }
             }
         }
@@ -3220,7 +3317,6 @@ async function loadClassFeeSummary() {
             return;
         }
         
-        let totalStudents = 0;
         let totalExpected = 0;
         let totalCollected = 0;
         let allFeeRecords = [];
@@ -3233,6 +3329,9 @@ async function loadClassFeeSummary() {
             ? studentsSnapshot.docs.filter(doc => doc.data().class === classId)
             : studentsSnapshot.docs;
         
+        // Track which students have records
+        const studentsWithRecords = new Set();
+        
         // Load fee records for all matching students
         for (const studentDoc of students) {
             const student = studentDoc.data();
@@ -3241,6 +3340,7 @@ async function loadClassFeeSummary() {
                 try {
                     const feeRecord = await window.getStudentFeeRecord(studentDoc.id, t, session);
                     if (feeRecord) {
+                        studentsWithRecords.add(studentDoc.id);
                         totalExpected += feeRecord.totalFee;
                         totalCollected += feeRecord.totalPaid;
                         allFeeRecords.push({
@@ -3250,9 +3350,51 @@ async function loadClassFeeSummary() {
                             term: t,
                             ...feeRecord,
                         });
+                    } else {
+                        // Student exists but has no fee record - get fee structure for their class/term
+                        try {
+                            const feeStructure = await getFeeStructure(student.class, t, session);
+                            if (feeStructure && feeStructure.totalFee) {
+                                totalExpected += feeStructure.totalFee;
+                                // Add to records with 0 paid
+                                allFeeRecords.push({
+                                    studentId: studentDoc.id,
+                                    studentName: student.name,
+                                    classId: student.class,
+                                    term: t,
+                                    totalFee: feeStructure.totalFee,
+                                    totalPaid: 0,
+                                    balance: feeStructure.totalFee,
+                                    status: 'Not Paid'
+                                });
+                                studentsWithRecords.add(studentDoc.id);
+                            }
+                        } catch (err) {
+                            console.log(`No fee structure found for ${student.class}, ${t}, ${session}`);
+                        }
                     }
                 } catch (e) {
-                    // Fee record doesn't exist, continue
+                    // Fee record lookup error, try to get fee structure
+                    try {
+                        const feeStructure = await getFeeStructure(student.class, t, session);
+                        if (feeStructure && feeStructure.totalFee) {
+                            totalExpected += feeStructure.totalFee;
+                            // Add to records with 0 paid
+                            allFeeRecords.push({
+                                studentId: studentDoc.id,
+                                studentName: student.name,
+                                classId: student.class,
+                                term: t,
+                                totalFee: feeStructure.totalFee,
+                                totalPaid: 0,
+                                balance: feeStructure.totalFee,
+                                status: 'Not Paid'
+                            });
+                            studentsWithRecords.add(studentDoc.id);
+                        }
+                    } catch (err) {
+                        console.log(`No fee structure found for ${student.class}, ${t}, ${session}`);
+                    }
                 }
             }
         }
@@ -3261,7 +3403,7 @@ async function loadClassFeeSummary() {
         if (allFeeRecords.length === 0) {
             const statsDiv = document.getElementById('feeSummaryStats');
             if (statsDiv) {
-                statsDiv.innerHTML = '<p class="text-muted">No fee records found for the selected criteria</p>';
+                statsDiv.innerHTML = '<p class="text-muted">No students or fee records found for the selected criteria</p>';
             }
             
             const detailsDiv = document.getElementById('feeSummaryDetails');
@@ -3271,7 +3413,8 @@ async function loadClassFeeSummary() {
             return;
         }
         
-        totalStudents = new Set(allFeeRecords.map(r => r.studentId)).size;
+        // Count total students (unique students in records)
+        const totalStudents = new Set(allFeeRecords.map(r => r.studentId)).size;
         const totalOutstanding = totalExpected - totalCollected;
         
         // Update stats cards
@@ -4158,6 +4301,8 @@ window.handleLogin = handleLogin;
 window.handleSignup = handleSignup;
 window.handleLogout = handleLogout;
 window.toggleAuthForm = toggleAuthForm;
+window.openForgotPasswordModal = openForgotPasswordModal;
+window.handleForgotPassword = handleForgotPassword;
 window.togglePasswordVisibility = togglePasswordVisibility;
 window.handleApproveTeacher = handleApproveTeacher;
 window.handleRejectTeacher = handleRejectTeacher;
@@ -4198,3 +4343,84 @@ window.loadReprintStudents = loadReprintStudents;
 window.loadReprintPayments = loadReprintPayments;
 window.reprintReceipt = reprintReceipt;
 window.filterStudentSelect = filterStudentSelect;
+
+// ============================================
+// DELETE TEACHER FUNCTIONALITY
+// ============================================
+
+/**
+ * Confirm deletion of a teacher/admin
+ */
+async function confirmDeleteTeacher(teacherUid, teacherName, teacherEmail) {
+    try {
+        // Double confirmation for safety
+        const confirmMessage = `⚠️ WARNING: You are about to permanently delete this teacher/admin account:
+
+Name: ${teacherName}
+Email: ${teacherEmail}
+
+This action will:
+• Delete their account from the system
+• Remove all their assignments
+• Cannot be undone
+
+Type "DELETE" to confirm:`;
+
+        const userInput = prompt(confirmMessage);
+        
+        if (userInput !== 'DELETE') {
+            alert('Deletion cancelled. You must type "DELETE" exactly to confirm.');
+            return;
+        }
+        
+        // Second confirmation
+        const finalConfirm = confirm(`Are you absolutely sure you want to delete ${teacherName}?\n\nClick OK to proceed with deletion.`);
+        
+        if (!finalConfirm) {
+            alert('Deletion cancelled.');
+            return;
+        }
+        
+        // Proceed with deletion
+        await deleteTeacher(teacherUid, teacherName, teacherEmail);
+        
+    } catch (error) {
+        console.error('Error in confirm delete:', error);
+        alert('Error: ' + error.message);
+    }
+}
+
+/**
+ * Delete a teacher from the system
+ */
+async function deleteTeacher(teacherUid, teacherName, teacherEmail) {
+    try {
+        // Check if current user is admin
+        if (!currentUser || currentUser.role !== 'admin') {
+            throw new Error('Only administrators can delete teacher accounts');
+        }
+        
+        // Prevent admin from deleting themselves
+        if (currentUser.uid === teacherUid) {
+            throw new Error('You cannot delete your own account');
+        }
+        
+        console.log('Deleting teacher:', teacherUid, teacherName);
+        
+        // Delete from Firestore
+        await window.db.collection('teachers').doc(teacherUid).delete();
+        
+        alert(`✅ Teacher account deleted successfully!\n\nName: ${teacherName}\nEmail: ${teacherEmail}`);
+        
+        // Reload the teachers list
+        await loadAdminPanel();
+        
+    } catch (error) {
+        console.error('Error deleting teacher:', error);
+        throw error;
+    }
+}
+
+// Expose functions to window
+window.confirmDeleteTeacher = confirmDeleteTeacher;
+window.deleteTeacher = deleteTeacher;
