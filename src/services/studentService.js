@@ -52,6 +52,12 @@ const registerStudent = async (studentData) => {
       enrollmentDate: window.firebase.firestore.Timestamp.now(),
       createdAt: window.firebase.firestore.Timestamp.now(),
       updatedAt: window.firebase.firestore.Timestamp.now(),
+      // Optional fees configuration
+      optionalFees: studentData.optionalFees || {
+        schoolBus: {
+          enabled: false
+        }
+      }
     };
 
     const docRef = await window.db.collection('students').add(studentDoc);

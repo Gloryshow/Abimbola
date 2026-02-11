@@ -81,22 +81,47 @@ const getClassFeeStructures = async (classId, session) => {
 
 /**
  * Initialize student fee record for a term (called when creating fee structure)
+ * Now includes optional fees like bus fee
  * @param {string} studentId
  * @param {string} classId
  * @param {string} term
- * @param {number} totalFee
+ * @param {number} totalFee - Base fee from fee structure
+ * @param {string} session
  */
 const initializeStudentFeeRecord = async (studentId, classId, term, totalFee, session) => {
   try {
     if (!window.db) throw new Error('Firebase not initialized');
     
+    // Get student data to check for optional fees
+    const studentDoc = await window.db.collection('students').doc(studentId).get();
+    const studentData = studentDoc.data();
+    
+    // Calculate optional fees
+    let optionalFeesTotal = 0;
+    const optionalFeesBreakdown = {};
+    
+    // Check for school bus fee
+    if (studentData?.optionalFees?.schoolBus?.enabled) {
+      const busFee = studentData.optionalFees.schoolBus.amount || 0;
+      optionalFeesTotal += busFee;
+      optionalFeesBreakdown.schoolBus = {
+        amount: busFee,
+        route: studentData.optionalFees.schoolBus.route
+      };
+    }
+    
+    // Calculate final total fee (base fee + optional fees)
+    const finalTotalFee = totalFee + optionalFeesTotal;
+    
     const feeRecord = {
       classId,
       term,
       session,
-      totalFee,
+      baseFee: totalFee, // Store base fee separately
+      optionalFees: optionalFeesBreakdown, // Store optional fees breakdown
+      totalFee: finalTotalFee, // Total including optional fees
       totalPaid: 0,
-      balance: totalFee,
+      balance: finalTotalFee,
       status: 'Unpaid',
       createdAt: window.firebase.firestore.Timestamp.now(),
       updatedAt: window.firebase.firestore.Timestamp.now(),
@@ -454,6 +479,8 @@ const bulkInitializeStudentFees = async (classId, term, totalFee, session) => {
     const batch = window.db.batch();
     
     for (const studentDoc of studentsSnapshot.docs) {
+      const studentData = studentDoc.data();
+      
       const feeRef = window.db
         .collection('students')
         .doc(studentDoc.id)
@@ -463,12 +490,29 @@ const bulkInitializeStudentFees = async (classId, term, totalFee, session) => {
       // Check if fee record already exists
       const existingFeeDoc = await feeRef.get();
       
+      // Calculate optional fees (like bus fee) for this student
+      let optionalFeesTotal = 0;
+      const optionalFeesBreakdown = {};
+      
+      // Check for school bus fee
+      if (studentData?.optionalFees?.schoolBus?.enabled) {
+        const busFee = studentData.optionalFees.schoolBus.amount || 0;
+        optionalFeesTotal += busFee;
+        optionalFeesBreakdown.schoolBus = {
+          amount: busFee,
+          route: studentData.optionalFees.schoolBus.route
+        };
+      }
+      
+      // Calculate final total fee (base fee + optional fees)
+      const finalTotalFee = totalFee + optionalFeesTotal;
+      
       if (existingFeeDoc.exists) {
         // Fee structure already exists - this is an UPDATE
         // Preserve payment history and recalculate balance
         const existingData = existingFeeDoc.data();
         const totalPaid = existingData.totalPaid || 0;
-        const newBalance = totalFee - totalPaid;
+        const newBalance = finalTotalFee - totalPaid;
         
         // Determine status based on new balance
         let newStatus = 'Unpaid';
@@ -478,11 +522,13 @@ const bulkInitializeStudentFees = async (classId, term, totalFee, session) => {
           newStatus = 'Part Payment';
         }
         
-        // Use merge to preserve payment history subcollection
+        // Update with new fee structure including optional fees
         batch.update(feeRef, {
-          totalFee,           // Update the fee amount
-          balance: newBalance, // Recalculate balance
-          status: newStatus,   // Update status based on new fee amount
+          baseFee: totalFee,             // Base fee from fee structure
+          optionalFees: optionalFeesBreakdown, // Optional fees breakdown
+          totalFee: finalTotalFee,       // Total including optional fees
+          balance: newBalance,           // Recalculate balance
+          status: newStatus,             // Update status based on new fee amount
           updatedAt: window.firebase.firestore.Timestamp.now(),
           // Keep session, totalPaid, and payment history intact
         });
@@ -492,9 +538,11 @@ const bulkInitializeStudentFees = async (classId, term, totalFee, session) => {
           classId,
           term,
           session,
-          totalFee,
+          baseFee: totalFee,              // Base fee from fee structure
+          optionalFees: optionalFeesBreakdown, // Optional fees breakdown
+          totalFee: finalTotalFee,        // Total including optional fees
           totalPaid: 0,
-          balance: totalFee,
+          balance: finalTotalFee,
           status: 'Unpaid',
           createdAt: window.firebase.firestore.Timestamp.now(),
           updatedAt: window.firebase.firestore.Timestamp.now(),

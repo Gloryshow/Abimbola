@@ -392,6 +392,47 @@
                                             <label class="form-label">Address</label>
                                             <textarea id="studentAddress" class="form-control" rows="2"></textarea>
                                         </div>
+
+                                        <!-- Optional Fees Section -->
+                                        <div class="col-12 mb-3">
+                                            <hr>
+                                            <h6>🚌 Optional Services</h6>
+                                        </div>
+
+                                        <div class="col-12 col-md-6 mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="studentUsesSchoolBus" onchange="toggleBusFeeSection()">
+                                                <label class="form-check-label" for="studentUsesSchoolBus">
+                                                    <strong>Student uses school bus</strong>
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        <div id="busFeeSection" style="display: none;" class="col-12">
+                                            <div class="row">
+                                                <div class="col-12 col-md-4 mb-3">
+                                                    <label class="form-label">Bus Route *</label>
+                                                    <select id="studentBusRoute" class="form-control" onchange="updateBusFeeAmount()">
+                                                        <option value="">-- Select Route --</option>
+                                                        <option value="Akanran Route" data-amount="12000">Akanran Route - ₦12,000/term</option>
+                                                        <option value="Amuloko Route" data-amount="10000">Amuloko Route - ₦10,000/term</option>
+                                                        <option value="Olunloyo Route" data-amount="11000">Olunloyo Route - ₦11,000/term</option>
+                                                        <option value="Olorunsogo Route" data-amount="13000">Olorunsogo Route - ₦13,000/term</option>
+                                                        <option value="Bakatari Route" data-amount="14000">Bakatari Route - ₦14,000/term</option>
+                                                        <option value="Arulogun Route" data-amount="11500">Arulogun Route - ₦11,500/term</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-12 col-md-4 mb-3">
+                                                    <label class="form-label">Bus Fee (per term)</label>
+                                                    <input type="number" id="studentBusFee" class="form-control" readonly>
+                                                </div>
+                                                <div class="col-12 col-md-4 mb-3">
+                                                    <label class="form-label">Start Date</label>
+                                                    <input type="date" id="studentBusStartDate" class="form-control">
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         <div class="col-12">
                                             <button type="submit" class="btn btn-success">Register Student</button>
                                             <div id="studentRegisterMessage" class="mt-2"></div>
@@ -664,6 +705,40 @@
                     <div class="mb-3">
                         <label class="form-label">Address</label>
                         <textarea id="editStudentFormAddress" class="form-control" rows="2"></textarea>
+                    </div>
+
+                    <!-- Bus Fee Management -->
+                    <hr>
+                    <h6>🚌 School Bus Service</h6>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="editStudentUsesSchoolBus" onchange="toggleEditBusFeeSection()">
+                            <label class="form-check-label" for="editStudentUsesSchoolBus">
+                                <strong>Student uses school bus</strong>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="editBusFeeSection" style="display: none;">
+                        <div class="row">
+                            <div class="col-12 col-md-6 mb-3">
+                                <label class="form-label">Bus Route *</label>
+                                <select id="editStudentBusRoute" class="form-control" onchange="updateEditBusFeeAmount()">
+                                    <option value="">-- Select Route --</option>
+                                    <option value="Akanran Route" data-amount="12000">Akanran Route - ₦12,000/term</option>
+                                    <option value="Amuloko Route" data-amount="10000">Amuloko Route - ₦10,000/term</option>
+                                    <option value="Olunloyo Route" data-amount="11000">Olunloyo Route - ₦11,000/term</option>
+                                    <option value="Olorunsogo Route" data-amount="13000">Olorunsogo Route - ₦13,000/term</option>
+                                    <option value="Bakatari Route" data-amount="14000">Bakatari Route - ₦14,000/term</option>
+                                    <option value="Arulogun Route" data-amount="11500">Arulogun Route - ₦11,500/term</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6 mb-3">
+                                <label class="form-label">Bus Fee (per term)</label>
+                                <input type="number" id="editStudentBusFee" class="form-control" readonly>
+                            </div>
+                        </div>
                     </div>
                     
                     <div id="editStudentMessage" class="mt-3"></div>
@@ -1050,6 +1125,11 @@
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="busManagementSubTab" data-bs-toggle="tab" data-bs-target="#busManagementSection" type="button" role="tab" aria-controls="busManagementSection" aria-selected="false" style="border: none; padding: 12px 20px; cursor: pointer;">
+                                    <span style="font-size: 16px;">🚌</span> Bus Fee
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="reprintReceiptSubTab" data-bs-toggle="tab" data-bs-target="#reprintReceiptSection" type="button" role="tab" aria-controls="reprintReceiptSection" aria-selected="false" style="border: none; padding: 12px 20px; cursor: pointer;">
                                     <span style="font-size: 16px;">🖨️</span> Reprint Receipt
                                 </button>
@@ -1405,6 +1485,128 @@
                     </div>
                     </div>
                 </div>
+
+                    <!-- Bus Fee Management Section -->
+                    <div class="tab-pane" id="busManagementSection" role="tabpanel" aria-labelledby="busManagementSubTab">
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header bg-info text-white">
+                                        <h5 class="mb-0">🚌 School Bus Fee Management</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <!-- Students Using Bus List -->
+                                            <div class="col-12 col-md-6 mb-4">
+                                                <h6 class="mb-3">Current Bus Users</h6>
+                                                <div id="busStudentsList" style="max-height: 500px; overflow-y: auto;">
+                                                    <p class="text-muted">Loading bus users...</p>
+                                                </div>
+                                            </div>
+
+                                            <!-- Add/Remove Bus Service Form -->
+                                            <div class="col-12 col-md-6 mb-4">
+                                                <h6 class="mb-3">Manage Bus Service</h6>
+                                                <form id="manageBusForm" onsubmit="handleManageBusService(event)">
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Select Class *</label>
+                                                        <select id="busManageClass" class="form-control" onchange="loadStudentsForBusManagement()" required>
+                                                            <option value="">-- Select Class --</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Select Student *</label>
+                                                        <select id="busManageStudent" class="form-control" onchange="loadStudentBusStatus()" required>
+                                                            <option value="">-- Select Student --</option>
+                                                        </select>
+                                                    </div>
+
+                                                    <!-- Current Status Display -->
+                                                    <div id="studentBusStatus" class="mb-3 p-3 bg-light rounded" style="display: none;">
+                                                        <h6 class="mb-2">Current Status:</h6>
+                                                        <p id="busStatusText" class="mb-0"></p>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Action *</label>
+                                                        <select id="busManageAction" class="form-control" onchange="toggleBusManageFields()" required>
+                                                            <option value="">-- Select Action --</option>
+                                                            <option value="add">Add Bus Service</option>
+                                                            <option value="remove">Remove Bus Service</option>
+                                                        </select>
+                                                    </div>
+
+                                                    <div id="busManageFields" style="display: none;">
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Bus Route *</label>
+                                                            <select id="busManageRoute" class="form-control" onchange="updateBusManageFeeAmount()">
+                                                                <option value="">-- Select Route --</option>
+                                                                <option value="Akanran Route" data-amount="12000">Akanran Route - ₦12,000/term</option>
+                                                                <option value="Amuloko Route" data-amount="10000">Amuloko Route - ₦10,000/term</option>
+                                                                <option value="Olunloyo Route" data-amount="11000">Olunloyo Route - ₦11,000/term</option>
+                                                                <option value="Olorunsogo Route" data-amount="13000">Olorunsogo Route - ₦13,000/term</option>
+                                                                <option value="Bakatari Route" data-amount="14000">Bakatari Route - ₦14,000/term</option>
+                                                                <option value="Arulogun Route" data-amount="11500">Arulogun Route - ₦11,500/term</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Bus Fee (per term)</label>
+                                                            <input type="number" id="busManageFee" class="form-control" readonly>
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Start Date</label>
+                                                            <input type="date" id="busManageStartDate" class="form-control">
+                                                        </div>
+                                                    </div>
+
+                                                    <button type="submit" class="btn btn-primary">Update Bus Service</button>
+                                                    <div id="busManageMessage" class="mt-2"></div>
+                                                </form>
+                                            </div>
+                                        </div>
+
+                                        <!-- Bus Fee Summary -->
+                                        <div class="row mt-4">
+                                            <div class="col-12">
+                                                <hr>
+                                                <h6 class="mb-3">Bus Fee Summary Report</h6>
+                                                <div class="row mb-3">
+                                                    <div class="col-12 col-md-3 mb-2">
+                                                        <label class="form-label">Academic Session</label>
+                                                        <select id="busSummarySession" class="form-control" onchange="loadBusFeeSummary()">
+                                                            <option value="">-- Select Session --</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-12 col-md-3 mb-2">
+                                                        <label class="form-label">Term</label>
+                                                        <select id="busSummaryTerm" class="form-control" onchange="loadBusFeeSummary()">
+                                                            <option value="">-- Select Term --</option>
+                                                            <option value="firstTerm">First Term</option>
+                                                            <option value="secondTerm">Second Term</option>
+                                                            <option value="thirdTerm">Third Term</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-12 col-md-3 mb-2">
+                                                        <label class="form-label">Class (Optional)</label>
+                                                        <select id="busSummaryClass" class="form-control" onchange="loadBusFeeSummary()">
+                                                            <option value="">-- All Classes --</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-12 col-md-3 mb-2">
+                                                        <label class="form-label">&nbsp;</label>
+                                                        <button type="button" class="btn btn-info w-100" onclick="loadBusFeeSummary()">Generate Report</button>
+                                                    </div>
+                                                </div>
+                                                <div id="busFeeSummaryContainer">
+                                                    <p class="text-muted">Select session and term to generate bus fee summary report. Optionally filter by class.</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- Reprint Receipt Section -->
                     <div class="tab-pane" id="reprintReceiptSection" role="tabpanel" aria-labelledby="reprintReceiptSubTab">

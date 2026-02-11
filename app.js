@@ -265,13 +265,92 @@ function showAdminPanel() {
 // STUDENT MANAGEMENT FUNCTIONS
 // ============================================
 
+// ============================================
+// SCHOOL BUS FEE MANAGEMENT
+// ============================================
+
+/**
+ * Toggle bus fee section visibility
+ */
+function toggleBusFeeSection() {
+    const checkbox = document.getElementById('studentUsesSchoolBus');
+    const section = document.getElementById('busFeeSection');
+    
+    if (checkbox.checked) {
+        section.style.display = 'block';
+    } else {
+        section.style.display = 'none';
+        // Clear bus fee fields
+        document.getElementById('studentBusRoute').value = '';
+        document.getElementById('studentBusFee').value = '';
+        document.getElementById('studentBusStartDate').value = '';
+    }
+}
+
+/**
+ * Update bus fee amount when route is selected
+ */
+function updateBusFeeAmount() {
+    const routeSelect = document.getElementById('studentBusRoute');
+    const feeInput = document.getElementById('studentBusFee');
+    
+    if (routeSelect.value) {
+        const selectedOption = routeSelect.options[routeSelect.selectedIndex];
+        const amount = selectedOption.getAttribute('data-amount');
+        feeInput.value = amount;
+    } else {
+        feeInput.value = '';
+    }
+}
+
+/**
+ * Toggle bus fee section visibility in edit modal
+ */
+function toggleEditBusFeeSection() {
+    const checkbox = document.getElementById('editStudentUsesSchoolBus');
+    const section = document.getElementById('editBusFeeSection');
+    
+    if (checkbox.checked) {
+        section.style.display = 'block';
+    } else {
+        section.style.display = 'none';
+        // Clear bus fee fields
+        document.getElementById('editStudentBusRoute').value = '';
+        document.getElementById('editStudentBusFee').value = '';
+    }
+}
+
+/**
+ * Update bus fee amount when route is selected in edit modal
+ */
+function updateEditBusFeeAmount() {
+    const routeSelect = document.getElementById('editStudentBusRoute');
+    const feeInput = document.getElementById('editStudentBusFee');
+    
+    if (routeSelect.value) {
+        const selectedOption = routeSelect.options[routeSelect.selectedIndex];
+        const amount = selectedOption.getAttribute('data-amount');
+        feeInput.value = amount;
+    } else {
+        feeInput.value = '';
+    }
+}
+
 async function handleRegisterStudent(event) {
     event.preventDefault();
+    
+    // Get the submit button and disable it to prevent double-clicking
+    const submitButton = event.target.querySelector('button[type="submit"]');
+    const originalButtonText = submitButton.innerHTML;
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Registering...';
     
     try {
         // Check if user is admin
         if (!currentUser || currentUser.role !== 'admin') {
             showMessage('studentRegisterMessage', 'Only admins can register new students', 'danger');
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalButtonText;
             return;
         }
 
@@ -288,7 +367,37 @@ async function handleRegisterStudent(event) {
 
         if (!name || !email || !className || !session) {
             showMessage('studentRegisterMessage', 'Name, email, class, and session are required', 'danger');
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalButtonText;
             return;
+        }
+
+        // Collect bus fee information
+        const usesBus = document.getElementById('studentUsesSchoolBus').checked;
+        const optionalFees = {};
+        
+        if (usesBus) {
+            const route = document.getElementById('studentBusRoute').value;
+            const amount = parseFloat(document.getElementById('studentBusFee').value);
+            const startDate = document.getElementById('studentBusStartDate').value;
+            
+            if (!route || !amount) {
+                showMessage('studentRegisterMessage', 'Please select bus route and confirm fee amount', 'danger');
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalButtonText;
+                return;
+            }
+            
+            optionalFees.schoolBus = {
+                enabled: true,
+                route: route,
+                amount: amount,
+                startDate: startDate || new Date().toISOString().split('T')[0]
+            };
+        } else {
+            optionalFees.schoolBus = {
+                enabled: false
+            };
         }
 
         showMessage('studentRegisterMessage', 'Registering student...', 'info');
@@ -303,10 +412,53 @@ async function handleRegisterStudent(event) {
             parentName,
             parentPhone,
             phone,
-            address
+            address,
+            optionalFees: optionalFees
         });
 
-        showMessage('studentRegisterMessage', `Student registered successfully! (Reg #: ${student.registrationNumber})`, 'success');
+        showMessage('studentRegisterMessage', `Student registered successfully! (Reg #: ${student.registrationNumber}). Initializing fee records...`, 'success');
+        
+        // Automatically initialize fee records for all terms
+        try {
+            const terms = ['firstTerm', 'secondTerm', 'thirdTerm'];
+            let feesInitialized = 0;
+            
+            for (const term of terms) {
+                try {
+                    // Get fee structure for this class and term
+                    const feeStructure = await window.getFeeStructure(className, term, session);
+                    
+                    if (feeStructure && feeStructure.totalFee) {
+                        // Initialize fee record for this term
+                        await window.initializeStudentFeeRecord(
+                            student.id,
+                            className,
+                            term,
+                            feeStructure.totalFee,
+                            session
+                        );
+                        feesInitialized++;
+                    }
+                } catch (termError) {
+                    console.log(`No fee structure for ${className}, ${term}, ${session}`);
+                }
+            }
+            
+            if (feesInitialized > 0) {
+                showMessage('studentRegisterMessage', 
+                    `Student registered successfully! (Reg #: ${student.registrationNumber}). Fee records initialized for ${feesInitialized} term(s).`, 
+                    'success');
+            } else {
+                showMessage('studentRegisterMessage', 
+                    `Student registered successfully! (Reg #: ${student.registrationNumber}). Note: No fee structure found for ${className}. Please initialize fees manually.`, 
+                    'warning');
+            }
+        } catch (feeError) {
+            console.error('Error initializing fees:', feeError);
+            showMessage('studentRegisterMessage', 
+                `Student registered successfully! (Reg #: ${student.registrationNumber}). Warning: Could not initialize fees automatically.`, 
+                'warning');
+        }
         
         // Reset form
         document.getElementById('studentRegistrationForm').reset();
@@ -314,11 +466,29 @@ async function handleRegisterStudent(event) {
         // Clear the registration number field for next entry
         document.getElementById('studentRegNum').value = '';
         
-        // Reload students list
+        // Hide bus fee section
+        document.getElementById('busFeeSection').style.display = 'none';
+        
+        // Reload all student lists
         loadStudentsList();
+        
+        // Refresh bus students list if the student uses bus service
+        if (usesBus && typeof loadBusStudents === 'function') {
+            loadBusStudents();
+        }
+        
+        // Refresh bus management dropdown if a class is already selected
+        const busManageClassSelect = document.getElementById('busManageClass');
+        if (busManageClassSelect && busManageClassSelect.value && typeof loadStudentsForBusManagement === 'function') {
+            loadStudentsForBusManagement();
+        }
     } catch (error) {
         showMessage('studentRegisterMessage', error.message, 'danger');
         console.error('Registration error:', error);
+    } finally {
+        // Re-enable the submit button
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalButtonText;
     }
 }
 // Store all students for search functionality
@@ -400,9 +570,13 @@ function renderStudentsList(students, displayTitle) {
         studentsHTML += '</tr></thead><tbody>';
         
         students.forEach(student => {
+            const busIndicator = student.optionalFees?.schoolBus?.enabled 
+                ? `<span class="badge bg-info ms-1" title="Uses school bus: ${student.optionalFees.schoolBus.route}">🚌 Bus</span>` 
+                : '';
+            
             studentsHTML += `
                 <tr>
-                    <td><strong>${student.name}</strong></td>
+                    <td><strong>${student.name}</strong>${busIndicator}</td>
                     <td>${student.email}</td>
                     <td><span class="badge bg-primary">${student.class}</span></td>
                     <td>${student.registrationNumber || '-'}</td>`;
@@ -471,6 +645,23 @@ function editStudent(studentId) {
     document.getElementById('editStudentFormAddress').value = student.address || '';
     document.getElementById('editStudentMessage').innerHTML = '';
     
+    // Populate bus fee information
+    const usesBus = student.optionalFees?.schoolBus?.enabled || false;
+    const busCheckbox = document.getElementById('editStudentUsesSchoolBus');
+    const busFeeSection = document.getElementById('editBusFeeSection');
+    
+    busCheckbox.checked = usesBus;
+    
+    if (usesBus) {
+        busFeeSection.style.display = 'block';
+        document.getElementById('editStudentBusRoute').value = student.optionalFees.schoolBus.route || '';
+        document.getElementById('editStudentBusFee').value = student.optionalFees.schoolBus.amount || '';
+    } else {
+        busFeeSection.style.display = 'none';
+        document.getElementById('editStudentBusRoute').value = '';
+        document.getElementById('editStudentBusFee').value = '';
+    }
+    
     // Show the modal
     const modal = new window.bootstrap.Modal(document.getElementById('editStudentModal'));
     modal.show();
@@ -488,13 +679,44 @@ async function handleSaveStudentChanges() {
         const phone = document.getElementById('editStudentFormPhone').value.trim();
         const address = document.getElementById('editStudentFormAddress').value.trim();
         
+        // Get bus fee information
+        const usesBus = document.getElementById('editStudentUsesSchoolBus').checked;
+        const busRoute = document.getElementById('editStudentBusRoute').value;
+        const busFee = parseFloat(document.getElementById('editStudentBusFee').value) || 0;
+        
         if (!name || !email || !className) {
             document.getElementById('editStudentMessage').innerHTML = '<div class="alert alert-danger">Name, email, and class are required</div>';
             return;
         }
         
+        if (usesBus && (!busRoute || !busFee)) {
+            document.getElementById('editStudentMessage').innerHTML = '<div class="alert alert-danger">Please select bus route and fee amount</div>';
+            return;
+        }
+        
         document.getElementById('editStudentMessage').innerHTML = '<div class="alert alert-info">Updating student...</div>';
         
+        // Get original student data to check for bus fee changes
+        const originalStudent = allStudents.find(s => s.id === studentId);
+        const originalUsesBus = originalStudent?.optionalFees?.schoolBus?.enabled || false;
+        const originalBusFee = originalStudent?.optionalFees?.schoolBus?.amount || 0;
+        
+        // Prepare optional fees data
+        const optionalFees = {};
+        if (usesBus) {
+            optionalFees.schoolBus = {
+                enabled: true,
+                route: busRoute,
+                amount: busFee,
+                startDate: originalStudent?.optionalFees?.schoolBus?.startDate || new Date().toISOString().split('T')[0]
+            };
+        } else {
+            optionalFees.schoolBus = {
+                enabled: false
+            };
+        }
+        
+        // Update student basic info
         await updateStudent(studentId, {
             name,
             email,
@@ -503,10 +725,76 @@ async function handleSaveStudentChanges() {
             parentName,
             parentPhone,
             phone,
-            address
+            address,
+            optionalFees
         });
         
-        document.getElementById('editStudentMessage').innerHTML = '<div class="alert alert-success">Student updated successfully!</div>';
+        // Update fee records if bus status changed
+        if (usesBus !== originalUsesBus || (usesBus && busFee !== originalBusFee)) {
+            const feeRecordsSnapshot = await window.db.collection('students')
+                .doc(studentId)
+                .collection('fees')
+                .get();
+            
+            if (!feeRecordsSnapshot.empty) {
+                const batch = window.db.batch();
+                let updatedCount = 0;
+                
+                for (const feeDoc of feeRecordsSnapshot.docs) {
+                    const feeData = feeDoc.data();
+                    let newTotalFee = feeData.totalFee;
+                    let newBalance = feeData.balance;
+                    let optionalFeesUpdate = { ...feeData.optionalFees };
+                    
+                    // Remove old bus fee if it exists
+                    if (feeData.optionalFees?.schoolBus) {
+                        newTotalFee -= feeData.optionalFees.schoolBus.amount;
+                        newBalance -= feeData.optionalFees.schoolBus.amount;
+                        delete optionalFeesUpdate.schoolBus;
+                    }
+                    
+                    // Add new bus fee if enabled
+                    if (usesBus) {
+                        newTotalFee += busFee;
+                        newBalance += busFee;
+                        optionalFeesUpdate.schoolBus = {
+                            amount: busFee,
+                            route: busRoute
+                        };
+                    }
+                    
+                    // Update fee record
+                    const updateData = {
+                        totalFee: newTotalFee,
+                        balance: newBalance,
+                        optionalFees: optionalFeesUpdate,
+                        updatedAt: window.firebase.firestore.Timestamp.now()
+                    };
+                    
+                    batch.update(feeDoc.ref, updateData);
+                    updatedCount++;
+                }
+                
+                await batch.commit();
+                document.getElementById('editStudentMessage').innerHTML = 
+                    `<div class="alert alert-success">Student updated successfully! Updated ${updatedCount} fee record(s).</div>`;
+            } else {
+                document.getElementById('editStudentMessage').innerHTML = '<div class="alert alert-success">Student updated successfully!</div>';
+            }
+        } else {
+            document.getElementById('editStudentMessage').innerHTML = '<div class="alert alert-success">Student updated successfully!</div>';
+        }
+        
+        // Reload bus students list if on that tab
+        if (typeof loadBusStudents === 'function') {
+            loadBusStudents();
+        }
+        
+        // Refresh bus management dropdown if a class is selected
+        const busManageClassSelect = document.getElementById('busManageClass');
+        if (busManageClassSelect && busManageClassSelect.value && typeof loadStudentsForBusManagement === 'function') {
+            loadStudentsForBusManagement();
+        }
         
         // Close modal and reload students
         setTimeout(() => {
@@ -530,6 +818,9 @@ function showMessage(elementId, message, type) {
 function switchTab(tabName) {
     currentTab = tabName;
     
+    // Clean up previous tab content before switching
+    cleanupTabContent();
+    
     // Hide all tabs
     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
     
@@ -549,6 +840,63 @@ function switchTab(tabName) {
     
     // Load tab-specific data
     loadTabData(tabName);
+}
+
+function cleanupTabContent() {
+    // Clear bus fee management content
+    const busStudentsList = document.getElementById('busStudentsList');
+    if (busStudentsList) {
+        busStudentsList.innerHTML = '<p class="text-muted">Loading bus users...</p>';
+    }
+    
+    const busManageClass = document.getElementById('busManageClass');
+    if (busManageClass) {
+        busManageClass.value = '';
+    }
+    
+    const busManageStudent = document.getElementById('busManageStudent');
+    if (busManageStudent) {
+        busManageStudent.innerHTML = '<option value="">-- Select Student --</option>';
+    }
+    
+    const studentBusStatus = document.getElementById('studentBusStatus');
+    if (studentBusStatus) {
+        studentBusStatus.style.display = 'none';
+    }
+    
+    const busManageAction = document.getElementById('busManageAction');
+    if (busManageAction) {
+        busManageAction.value = '';
+    }
+    
+    const busManageFields = document.getElementById('busManageFields');
+    if (busManageFields) {
+        busManageFields.style.display = 'none';
+    }
+    
+    // Clear bus fee summary
+    const busFeeSummaryContainer = document.getElementById('busFeeSummaryContainer');
+    if (busFeeSummaryContainer) {
+        busFeeSummaryContainer.innerHTML = '';
+    }
+    
+    // Clear any messages
+    const busManageMessage = document.getElementById('busManageMessage');
+    if (busManageMessage) {
+        busManageMessage.innerHTML = '';
+    }
+    
+    // Reset fee management sub-tabs to default (Fee Structure)
+    const feeStructureSubTab = document.getElementById('feeStructureSubTab');
+    const feeStructureSection = document.getElementById('feeStructureSection');
+    if (feeStructureSubTab && feeStructureSection) {
+        // Remove active from all fee sub-tabs
+        document.querySelectorAll('#feeManagementTabContent .tab-pane').forEach(pane => {
+            pane.classList.remove('active', 'show');
+        });
+        // Activate fee structure tab
+        feeStructureSection.classList.add('active', 'show');
+    }
 }
 
 async function loadTabData(tabName) {
@@ -731,6 +1079,7 @@ function populateSessionDropdowns() {
     populateDropdown('summarySession');
     populateDropdown('detailsSession');
     populateDropdown('reprintSession');
+    populateDropdown('busSummarySession');
 }
 
 // ============================================
@@ -2784,13 +3133,19 @@ async function initializeFeesTab() {
             'feeSummaryClass',
             'paymentStudentClass',
             'detailsStudentClass',
-            'reprintStudentClass'
+            'reprintStudentClass',
+            'busManageClass',
+            'busSummaryClass'
         ];
         
         classSelects.forEach(selectId => {
             const select = document.getElementById(selectId);
             if (select) {
-                select.innerHTML = '<option value="">-- Select Class --</option>';
+                // Use different default text for busSummaryClass since it's optional
+                const defaultText = selectId === 'busSummaryClass' 
+                    ? '-- All Classes --' 
+                    : '-- Select Class --';
+                select.innerHTML = `<option value="">${defaultText}</option>`;
                 if (classes && classes.length > 0) {
                     classes.forEach(cls => {
                         const option = document.createElement('option');
@@ -2807,6 +3162,9 @@ async function initializeFeesTab() {
             }
         });
         
+        // Load bus students list
+        loadBusStudents();
+        
         // Set today's date for payment date field
         const paymentDateField = document.getElementById('paymentDate');
         if (paymentDateField) {
@@ -2818,8 +3176,8 @@ async function initializeFeesTab() {
             loadFeeFormFromLocalStorage();
         }
         
-        // Load default summary for current session
-        await loadDefaultFeeSummary();
+        // Initialize fee summary with empty state and prompt
+        initializeEmptyFeeSummary();
         
     } catch (error) {
         console.error('Error initializing fees tab:', error);
@@ -2827,170 +3185,42 @@ async function initializeFeesTab() {
 }
 
 /**
+ * Initialize fee summary with empty state and prompt to select filters
+ */
+function initializeEmptyFeeSummary() {
+    // Reset stats
+    const summaryStudents = document.getElementById('summaryStudents');
+    const summaryExpected = document.getElementById('summaryExpected');
+    const summaryCollected = document.getElementById('summaryCollected');
+    const summaryOutstanding = document.getElementById('summaryOutstanding');
+    
+    if (summaryStudents) summaryStudents.textContent = '0';
+    if (summaryExpected) summaryExpected.textContent = '₦0';
+    if (summaryCollected) summaryCollected.textContent = '₦0';
+    if (summaryOutstanding) summaryOutstanding.textContent = '₦0';
+    
+    // Show prompt message
+    const detailsDiv = document.getElementById('feeSummaryDetails');
+    if (detailsDiv) {
+        detailsDiv.innerHTML = `
+            <div class="alert alert-info" style="padding: 40px; text-align: center;">
+                <h5><i class="bi bi-filter"></i> Select Filters to View Fee Summary</h5>
+                <p class="mb-3">Please select <strong>Academic Session</strong> and <strong>Term</strong> above to view the class fee summary.</p>
+                <p class="text-muted mb-0"><small>You can also optionally filter by specific class to narrow down the results.</small></p>
+            </div>
+        `;
+    }
+}
+
+/**
  * Load default fee summary for current session (all students, all classes)
+ * NOTE: This function is now deprecated and replaced by initializeEmptyFeeSummary
+ * Kept for backward compatibility but does nothing
  */
 async function loadDefaultFeeSummary() {
-    try {
-        // Try to get the latest session from localStorage or use current academic year
-        let latestSession = localStorage.getItem('lastFeeSession');
-        
-        // If no session in localStorage, construct from current date
-        if (!latestSession) {
-            const currentYear = new Date().getFullYear();
-            const currentMonth = new Date().getMonth();
-            // If before August, it's previous year's session
-            const sessionStart = currentMonth < 8 ? currentYear - 1 : currentYear;
-            latestSession = `${sessionStart}/${sessionStart + 1}`;
-        }
-        
-        console.log('Loading default fee summary for session:', latestSession);
-        
-        // Set the session in the summary field
-        const summarySessionField = document.getElementById('summarySession');
-        if (summarySessionField) {
-            summarySessionField.value = latestSession;
-        }
-        
-        // Get all students with their fee data for all terms
-        let totalStudents = 0;
-        let totalExpected = 0;
-        let totalCollected = 0;
-        let allFeeRecords = [];
-        
-        const studentsSnapshot = await window.db.collection('students').get();
-        const terms = ['firstTerm', 'secondTerm', 'thirdTerm'];
-        
-        if (studentsSnapshot.empty) {
-            console.log('No students found');
-            return;
-        }
-        
-        for (const studentDoc of studentsSnapshot.docs) {
-            const student = studentDoc.data();
-            
-            for (const term of terms) {
-                try {
-                    const feeRecord = await window.getStudentFeeRecord(studentDoc.id, term, latestSession);
-                    if (feeRecord) {
-                        totalExpected += feeRecord.totalFee;
-                        totalCollected += feeRecord.totalPaid;
-                        allFeeRecords.push({
-                            studentId: studentDoc.id,
-                            studentName: student.name,
-                            classId: student.class,
-                            term: term,
-                            ...feeRecord,
-                        });
-                    } else {
-                        // Student exists but has no fee record - get fee structure for their class/term
-                        try {
-                            const feeStructure = await getFeeStructure(student.class, term, latestSession);
-                            if (feeStructure && feeStructure.totalFee) {
-                                totalExpected += feeStructure.totalFee;
-                                // Add to records with 0 paid
-                                allFeeRecords.push({
-                                    studentId: studentDoc.id,
-                                    studentName: student.name,
-                                    classId: student.class,
-                                    term: term,
-                                    totalFee: feeStructure.totalFee,
-                                    totalPaid: 0,
-                                    balance: feeStructure.totalFee,
-                                    status: 'Not Paid'
-                                });
-                            }
-                        } catch (err) {
-                            console.log(`No fee structure found for ${student.class}, ${term}, ${latestSession}`);
-                        }
-                    }
-                } catch (e) {
-                    // Fee record lookup error, try to get fee structure
-                    try {
-                        const feeStructure = await getFeeStructure(student.class, term, latestSession);
-                        if (feeStructure && feeStructure.totalFee) {
-                            totalExpected += feeStructure.totalFee;
-                            // Add to records with 0 paid
-                            allFeeRecords.push({
-                                studentId: studentDoc.id,
-                                studentName: student.name,
-                                classId: student.class,
-                                term: term,
-                                totalFee: feeStructure.totalFee,
-                                totalPaid: 0,
-                                balance: feeStructure.totalFee,
-                                status: 'Not Paid'
-                            });
-                        }
-                    } catch (err) {
-                        console.log(`No fee structure found for ${student.class}, ${term}, ${latestSession}`);
-                    }
-                }
-            }
-        }
-        
-        // Only update if we have data
-        if (allFeeRecords.length > 0) {
-            totalStudents = new Set(allFeeRecords.map(r => r.studentId)).size;
-            const totalOutstanding = totalExpected - totalCollected;
-            
-            // Update summary cards
-            const summaryStudents = document.getElementById('summaryStudents');
-            const summaryExpected = document.getElementById('summaryExpected');
-            const summaryCollected = document.getElementById('summaryCollected');
-            const summaryOutstanding = document.getElementById('summaryOutstanding');
-            
-            if (summaryStudents) summaryStudents.textContent = totalStudents;
-            if (summaryExpected) summaryExpected.textContent = '₦' + totalExpected.toLocaleString();
-            if (summaryCollected) summaryCollected.textContent = '₦' + totalCollected.toLocaleString();
-            if (summaryOutstanding) summaryOutstanding.textContent = '₦' + totalOutstanding.toLocaleString();
-            
-            // Generate and display details table
-            let html = `
-                <table class="table table-striped table-hover">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Student Name</th>
-                            <th>Class</th>
-                            <th>Total Fee</th>
-                            <th>Paid</th>
-                            <th>Balance</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-            
-            allFeeRecords.forEach(record => {
-                const statusColor = record.status === 'Paid' ? 'success' : record.status === 'Part Payment' ? 'warning' : 'danger';
-                html += `
-                    <tr>
-                        <td>${record.studentName}</td>
-                        <td>${record.classId}</td>
-                        <td>₦${record.totalFee.toLocaleString()}</td>
-                        <td>₦${record.totalPaid.toLocaleString()}</td>
-                        <td>₦${record.balance.toLocaleString()}</td>
-                        <td><span class="badge bg-${statusColor}">${record.status}</span></td>
-                    </tr>
-                `;
-            });
-            
-            html += `
-                    </tbody>
-                </table>
-            `;
-            
-            const detailsDiv = document.getElementById('feeSummaryDetails');
-            if (detailsDiv) {
-                detailsDiv.innerHTML = html;
-            }
-            
-            console.log('Default fee summary loaded for session:', latestSession);
-        }
-        
-    } catch (error) {
-        console.error('Error loading default fee summary:', error);
-        // Don't show error to user, just log it
-    }
+    // This function is no longer called by default
+    // Users must now select filters manually to view fee summary
+    console.log('loadDefaultFeeSummary called but skipped - user must select filters manually');
 }
 
 /**
@@ -3308,11 +3538,20 @@ async function loadClassFeeSummary() {
         const term = document.getElementById('summaryTerm').value;
         const session = document.getElementById('summarySession').value;
         
-        // Require at least a session
-        if (!session) {
+        // Require both session and term
+        if (!session || !term) {
             const statsDiv = document.getElementById('feeSummaryStats');
             if (statsDiv) {
-                statsDiv.innerHTML = '<p class="text-muted">Please select an academic session to view summary</p>';
+                // Reset stats
+                document.getElementById('summaryStudents').textContent = '0';
+                document.getElementById('summaryExpected').textContent = '₦0';
+                document.getElementById('summaryCollected').textContent = '₦0';
+                document.getElementById('summaryOutstanding').textContent = '₦0';
+            }
+            
+            const detailsDiv = document.getElementById('feeSummaryDetails');
+            if (detailsDiv) {
+                detailsDiv.innerHTML = '<div class="alert alert-warning"><strong>⚠️ Please select both Academic Session and Term</strong><br>The Class Fee Summary requires you to select a specific session and term to view accurate fee data.</div>';
             }
             return;
         }
@@ -3322,7 +3561,6 @@ async function loadClassFeeSummary() {
         let allFeeRecords = [];
         
         const studentsSnapshot = await window.db.collection('students').get();
-        const terms = term ? [term] : ['firstTerm', 'secondTerm', 'thirdTerm'];
         
         // Filter students by class if specified
         const students = classId 
@@ -3332,70 +3570,27 @@ async function loadClassFeeSummary() {
         // Track which students have records
         const studentsWithRecords = new Set();
         
-        // Load fee records for all matching students
+        // Load fee records for all matching students for the SELECTED TERM ONLY
         for (const studentDoc of students) {
             const student = studentDoc.data();
             
-            for (const t of terms) {
-                try {
-                    const feeRecord = await window.getStudentFeeRecord(studentDoc.id, t, session);
-                    if (feeRecord) {
-                        studentsWithRecords.add(studentDoc.id);
-                        totalExpected += feeRecord.totalFee;
-                        totalCollected += feeRecord.totalPaid;
-                        allFeeRecords.push({
-                            studentId: studentDoc.id,
-                            studentName: student.name,
-                            classId: student.class,
-                            term: t,
-                            ...feeRecord,
-                        });
-                    } else {
-                        // Student exists but has no fee record - get fee structure for their class/term
-                        try {
-                            const feeStructure = await getFeeStructure(student.class, t, session);
-                            if (feeStructure && feeStructure.totalFee) {
-                                totalExpected += feeStructure.totalFee;
-                                // Add to records with 0 paid
-                                allFeeRecords.push({
-                                    studentId: studentDoc.id,
-                                    studentName: student.name,
-                                    classId: student.class,
-                                    term: t,
-                                    totalFee: feeStructure.totalFee,
-                                    totalPaid: 0,
-                                    balance: feeStructure.totalFee,
-                                    status: 'Not Paid'
-                                });
-                                studentsWithRecords.add(studentDoc.id);
-                            }
-                        } catch (err) {
-                            console.log(`No fee structure found for ${student.class}, ${t}, ${session}`);
-                        }
-                    }
-                } catch (e) {
-                    // Fee record lookup error, try to get fee structure
-                    try {
-                        const feeStructure = await getFeeStructure(student.class, t, session);
-                        if (feeStructure && feeStructure.totalFee) {
-                            totalExpected += feeStructure.totalFee;
-                            // Add to records with 0 paid
-                            allFeeRecords.push({
-                                studentId: studentDoc.id,
-                                studentName: student.name,
-                                classId: student.class,
-                                term: t,
-                                totalFee: feeStructure.totalFee,
-                                totalPaid: 0,
-                                balance: feeStructure.totalFee,
-                                status: 'Not Paid'
-                            });
-                            studentsWithRecords.add(studentDoc.id);
-                        }
-                    } catch (err) {
-                        console.log(`No fee structure found for ${student.class}, ${t}, ${session}`);
-                    }
+            try {
+                const feeRecord = await window.getStudentFeeRecord(studentDoc.id, term, session);
+                if (feeRecord) {
+                    studentsWithRecords.add(studentDoc.id);
+                    totalExpected += feeRecord.totalFee;
+                    totalCollected += feeRecord.totalPaid;
+                    allFeeRecords.push({
+                        studentId: studentDoc.id,
+                        studentName: student.name,
+                        classId: student.class,
+                        term: term,
+                        ...feeRecord,
+                    });
                 }
+            } catch (e) {
+                // Student has no fee record - skip them
+                console.log(`No fee record found for ${student.name}, ${term}, ${session}`);
             }
         }
         
@@ -3403,18 +3598,23 @@ async function loadClassFeeSummary() {
         if (allFeeRecords.length === 0) {
             const statsDiv = document.getElementById('feeSummaryStats');
             if (statsDiv) {
-                statsDiv.innerHTML = '<p class="text-muted">No students or fee records found for the selected criteria</p>';
+                // Reset stats
+                document.getElementById('summaryStudents').textContent = '0';
+                document.getElementById('summaryExpected').textContent = '₦0';
+                document.getElementById('summaryCollected').textContent = '₦0';
+                document.getElementById('summaryOutstanding').textContent = '₦0';
             }
             
             const detailsDiv = document.getElementById('feeSummaryDetails');
             if (detailsDiv) {
-                detailsDiv.innerHTML = '<p class="text-muted">No data to display</p>';
+                const termName = term === 'firstTerm' ? 'First Term' : term === 'secondTerm' ? 'Second Term' : 'Third Term';
+                detailsDiv.innerHTML = `<div class="alert alert-info">No fee records found for ${classId || 'any class'}, ${termName}, ${session}.<br><br>Go to <strong>Fee Structure</strong> tab to initialize fees for this term.</div>`;
             }
             return;
         }
         
         // Count total students (unique students in records)
-        const totalStudents = new Set(allFeeRecords.map(r => r.studentId)).size;
+        const totalStudents = allFeeRecords.length; // Since we're only showing one term, each record = one student
         const totalOutstanding = totalExpected - totalCollected;
         
         // Update stats cards
@@ -3435,7 +3635,6 @@ async function loadClassFeeSummary() {
                     <tr>
                         <th>Student Name</th>
                         ${!classId ? '<th>Class</th>' : ''}
-                        ${!term ? '<th>Term</th>' : ''}
                         <th>Total Fee</th>
                         <th>Paid</th>
                         <th>Balance</th>
@@ -3447,11 +3646,14 @@ async function loadClassFeeSummary() {
         
         allFeeRecords.forEach(record => {
             const statusColor = record.status === 'Paid' ? 'success' : record.status === 'Part Payment' ? 'warning' : 'danger';
+            const busIndicator = record.optionalFees?.schoolBus 
+                ? `<br><small class="text-muted">Includes Bus: ₦${record.optionalFees.schoolBus.amount.toLocaleString()}</small>` 
+                : '';
+            
             html += `
                 <tr>
-                    <td><strong>${record.studentName}</strong></td>
+                    <td><strong>${record.studentName}</strong>${busIndicator}</td>
                     ${!classId ? `<td>${record.classId}</td>` : ''}
-                    ${!term ? `<td>${record.term === 'firstTerm' ? '1st Term' : record.term === 'secondTerm' ? '2nd Term' : '3rd Term'}</td>` : ''}
                     <td>₦${record.totalFee.toLocaleString()}</td>
                     <td>₦${record.totalPaid.toLocaleString()}</td>
                     <td>₦${record.balance.toLocaleString()}</td>
@@ -4009,6 +4211,27 @@ async function loadStudentFeeDetails() {
 
                             <hr>
 
+                            ${feeRecord.baseFee || feeRecord.optionalFees ? `
+                            <h6 class="mb-3">Fee Breakdown</h6>
+                            <table class="table table-sm">
+                                ${feeRecord.baseFee ? `<tr><td><strong>Base Fee (Class Fee Structure)</strong></td><td><strong>₦${feeRecord.baseFee.toLocaleString()}</strong></td></tr>` : ''}
+                                ${feeRecord.optionalFees?.schoolBus ? `
+                                <tr class="table-info">
+                                    <td>
+                                        <strong>🚌 School Bus Fee</strong>
+                                        <br><small class="text-muted">${feeRecord.optionalFees.schoolBus.route}</small>
+                                    </td>
+                                    <td><strong>₦${feeRecord.optionalFees.schoolBus.amount.toLocaleString()}</strong></td>
+                                </tr>
+                                ` : ''}
+                                <tr class="table-light">
+                                    <td><strong>Total Fee</strong></td>
+                                    <td><strong>₦${feeRecord.totalFee.toLocaleString()}</strong></td>
+                                </tr>
+                            </table>
+                            <hr>
+                            ` : ''}
+
                             <h6 class="mb-3">Payment History</h6>
                             ${payments.length > 0 ? `
                                 <table class="table table-sm table-striped">
@@ -4290,6 +4513,505 @@ function filterStudentSelect(selectId, searchId) {
     });
 }
 
+// ============================================
+// BUS FEE MANAGEMENT FUNCTIONS
+// ============================================
+
+/**
+ * Load students currently using the bus service
+ */
+async function loadBusStudents() {
+    try {
+        const students = await getStudents();
+        const busStudents = students.filter(student => student.optionalFees?.schoolBus?.enabled);
+        
+        const container = document.getElementById('busStudentsList');
+        
+        if (busStudents.length === 0) {
+            container.innerHTML = '<p class="text-muted">No students are currently using the bus service.</p>';
+            return;
+        }
+        
+        // Sort by enrollment date (most recent first) and limit to top 3
+        const sortedBusStudents = busStudents.sort((a, b) => {
+            const dateA = a.enrollmentDate?.toDate?.() || new Date(0);
+            const dateB = b.enrollmentDate?.toDate?.() || new Date(0);
+            return dateB - dateA;
+        });
+        
+        const displayStudents = sortedBusStudents.slice(0, 3);
+        const remainingCount = busStudents.length - displayStudents.length;
+        
+        let html = '<div class="list-group">';
+        displayStudents.forEach(student => {
+            html += `
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="mb-1">${student.name}</h6>
+                            <p class="mb-1"><small class="text-muted">Class: ${student.class}</small></p>
+                            <p class="mb-0"><small><strong>Route:</strong> ${student.optionalFees.schoolBus.route}</small></p>
+                            <p class="mb-0"><small><strong>Fee:</strong> ₦${student.optionalFees.schoolBus.amount.toLocaleString()}/term</small></p>
+                        </div>
+                        <span class="badge bg-success">Active</span>
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        
+        if (remainingCount > 0) {
+            html += `<p class="text-muted mt-2 mb-0"><small><i class="bi bi-info-circle"></i> Showing latest 3 of ${busStudents.length} total bus users. Use the filter to find specific students.</small></p>`;
+        }
+        
+        container.innerHTML = html;
+    } catch (error) {
+        console.error('Error loading bus students:', error);
+        document.getElementById('busStudentsList').innerHTML = '<div class="alert alert-danger">Error loading bus students</div>';
+    }
+}
+
+/**
+ * Load students for bus management dropdown
+ */
+async function loadStudentsForBusManagement() {
+    try {
+        const classId = document.getElementById('busManageClass').value;
+        const select = document.getElementById('busManageStudent');
+        
+        select.innerHTML = '<option value="">-- Select Student --</option>';
+        document.getElementById('studentBusStatus').style.display = 'none';
+        
+        if (!classId) return;
+        
+        const students = await getStudentsByClass(classId);
+        
+        students.forEach(student => {
+            const option = document.createElement('option');
+            option.value = student.id;
+            option.textContent = student.name;
+            select.appendChild(option);
+        });
+        
+    } catch (error) {
+        console.error('Error loading students:', error);
+        alert('Failed to load students: ' + error.message);
+    }
+}
+
+/**
+ * Load and display current bus status for selected student
+ */
+async function loadStudentBusStatus() {
+    try {
+        const studentId = document.getElementById('busManageStudent').value;
+        const statusDiv = document.getElementById('studentBusStatus');
+        const statusText = document.getElementById('busStatusText');
+        
+        if (!studentId) {
+            statusDiv.style.display = 'none';
+            return;
+        }
+        
+        const studentDoc = await window.db.collection('students').doc(studentId).get();
+        const student = studentDoc.data();
+        
+        if (student.optionalFees?.schoolBus?.enabled) {
+            statusText.innerHTML = `
+                <strong class="text-success">✓ Currently using bus service</strong><br>
+                <small>Route: ${student.optionalFees.schoolBus.route}</small><br>
+                <small>Fee: ₦${student.optionalFees.schoolBus.amount.toLocaleString()}/term</small>
+            `;
+        } else {
+            statusText.innerHTML = '<strong class="text-muted">Not using bus service</strong>';
+        }
+        
+        statusDiv.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error loading student bus status:', error);
+    }
+}
+
+/**
+ * Toggle bus route selection fields based on action
+ */
+function toggleBusManageFields() {
+    const action = document.getElementById('busManageAction').value;
+    const fieldsDiv = document.getElementById('busManageFields');
+    
+    if (action === 'add') {
+        fieldsDiv.style.display = 'block';
+    } else {
+        fieldsDiv.style.display = 'none';
+    }
+}
+
+/**
+ * Update bus fee amount when route is selected
+ */
+function updateBusManageFeeAmount() {
+    const routeSelect = document.getElementById('busManageRoute');
+    const feeInput = document.getElementById('busManageFee');
+    
+    if (routeSelect.value) {
+        const selectedOption = routeSelect.options[routeSelect.selectedIndex];
+        const amount = selectedOption.getAttribute('data-amount');
+        feeInput.value = amount;
+    } else {
+        feeInput.value = '';
+    }
+}
+
+/**
+ * Handle add/remove bus service for a student
+ */
+async function handleManageBusService(event) {
+    event.preventDefault();
+    
+    try {
+        const studentId = document.getElementById('busManageStudent').value;
+        const action = document.getElementById('busManageAction').value;
+        
+        if (!studentId || !action) {
+            showMessage('busManageMessage', 'Please select student and action', 'danger');
+            return;
+        }
+        
+        showMessage('busManageMessage', 'Processing...', 'info');
+        
+        if (action === 'add') {
+            const route = document.getElementById('busManageRoute').value;
+            const amount = parseFloat(document.getElementById('busManageFee').value);
+            const startDate = document.getElementById('busManageStartDate').value;
+            
+            if (!route || !amount) {
+                showMessage('busManageMessage', 'Please select route and confirm fee amount', 'danger');
+                return;
+            }
+            
+            // Update student record to add bus service
+            await window.db.collection('students').doc(studentId).update({
+                'optionalFees.schoolBus': {
+                    enabled: true,
+                    route: route,
+                    amount: amount,
+                    startDate: startDate || new Date().toISOString().split('T')[0]
+                }
+            });
+            
+            // Update existing fee records to include bus fee
+            const feeRecordsSnapshot = await window.db.collection('students')
+                .doc(studentId)
+                .collection('fees')
+                .get();
+            
+            let updatedCount = 0;
+            const batch = window.db.batch();
+            
+            for (const feeDoc of feeRecordsSnapshot.docs) {
+                const feeData = feeDoc.data();
+                
+                // Only update if bus fee not already included
+                if (!feeData.optionalFees?.schoolBus) {
+                    const newTotalFee = feeData.totalFee + amount;
+                    const newBalance = feeData.balance + amount;
+                    
+                    batch.update(feeDoc.ref, {
+                        'optionalFees.schoolBus': {
+                            amount: amount,
+                            route: route
+                        },
+                        totalFee: newTotalFee,
+                        balance: newBalance,
+                        baseFee: feeData.totalFee, // Store original base fee
+                        updatedAt: window.firebase.firestore.Timestamp.now()
+                    });
+                    updatedCount++;
+                }
+            }
+            
+            if (updatedCount > 0) {
+                await batch.commit();
+                showMessage('busManageMessage', 
+                    `✓ Bus service added successfully! Updated ${updatedCount} existing fee record(s) to include ₦${amount.toLocaleString()} bus fee.`, 
+                    'success');
+            } else {
+                showMessage('busManageMessage', 
+                    '✓ Bus service added successfully! Future fee records will include bus fee.', 
+                    'success');
+            }
+            
+        } else if (action === 'remove') {
+            // Confirm before removing
+            const confirmRemove = confirm(
+                'Remove bus service? This will also remove bus fees from all existing fee records. Continue?'
+            );
+            
+            if (!confirmRemove) {
+                showMessage('busManageMessage', 'Bus service removal cancelled', 'info');
+                return;
+            }
+            
+            // Get student's bus fee amount before removing
+            const studentDoc = await window.db.collection('students').doc(studentId).get();
+            const busFeeAmount = studentDoc.data()?.optionalFees?.schoolBus?.amount || 0;
+            
+            // Update student record to remove bus service
+            await window.db.collection('students').doc(studentId).update({
+                'optionalFees.schoolBus': {
+                    enabled: false
+                }
+            });
+            
+            // Update existing fee records to remove bus fee
+            const feeRecordsSnapshot = await window.db.collection('students')
+                .doc(studentId)
+                .collection('fees')
+                .get();
+            
+            let updatedCount = 0;
+            const batch = window.db.batch();
+            
+            for (const feeDoc of feeRecordsSnapshot.docs) {
+                const feeData = feeDoc.data();
+                
+                // Only update if bus fee is included
+                if (feeData.optionalFees?.schoolBus) {
+                    const busAmount = feeData.optionalFees.schoolBus.amount;
+                    const newTotalFee = feeData.totalFee - busAmount;
+                    const newBalance = feeData.balance - busAmount;
+                    
+                    // Remove optionalFees.schoolBus field
+                    batch.update(feeDoc.ref, {
+                        'optionalFees.schoolBus': window.firebase.firestore.FieldValue.delete(),
+                        totalFee: newTotalFee,
+                        balance: newBalance,
+                        updatedAt: window.firebase.firestore.Timestamp.now()
+                    });
+                    updatedCount++;
+                }
+            }
+            
+            if (updatedCount > 0) {
+                await batch.commit();
+                showMessage('busManageMessage', 
+                    `✓ Bus service removed successfully! Updated ${updatedCount} existing fee record(s) to remove bus fees.`, 
+                    'success');
+            } else {
+                showMessage('busManageMessage', 
+                    '✓ Bus service removed successfully! Future fee records will not include bus fee.', 
+                    'success');
+            }
+        }
+        
+        // Reset form and reload displays
+        document.getElementById('manageBusForm').reset();
+        document.getElementById('busManageFields').style.display = 'none';
+        document.getElementById('studentBusStatus').style.display = 'none';
+        
+        // Reload bus students list
+        loadBusStudents();
+        
+        // Refresh the student dropdown to show updated status
+        const busManageClassSelect = document.getElementById('busManageClass');
+        if (busManageClassSelect && busManageClassSelect.value) {
+            loadStudentsForBusManagement();
+        }
+        
+    } catch (error) {
+        showMessage('busManageMessage', 'Error: ' + error.message, 'danger');
+        console.error('Error managing bus service:', error);
+    }
+}
+
+/**
+ * Generate bus fee summary report
+ */
+async function loadBusFeeSummary() {
+    try {
+        const session = document.getElementById('busSummarySession').value;
+        const term = document.getElementById('busSummaryTerm').value;
+        const classId = document.getElementById('busSummaryClass').value;
+        const container = document.getElementById('busFeeSummaryContainer');
+        
+        if (!session || !term) {
+            container.innerHTML = '<p class="text-muted">Please select both session and term to view the report</p>';
+            return;
+        }
+        
+        container.innerHTML = '<p class="text-muted">Generating report...</p>';
+        
+        // Get all students with bus service enabled
+        const studentsSnapshot = await window.db.collection('students')
+            .where('optionalFees.schoolBus.enabled', '==', true)
+            .get();
+        
+        if (studentsSnapshot.empty) {
+            container.innerHTML = '<p class="text-muted">No students are currently using the bus service</p>';
+            return;
+        }
+        
+        let totalExpected = 0;
+        let totalCollected = 0;
+        let studentCount = 0;
+        const studentDetails = [];
+        
+        for (const studentDoc of studentsSnapshot.docs) {
+            const student = studentDoc.data();
+            const studentId = studentDoc.id;
+            
+            // Check if student's bus service is actually enabled
+            if (!student.optionalFees?.schoolBus?.enabled) {
+                continue;
+            }
+            
+            // Filter by class if specified
+            if (classId && student.class !== classId) {
+                continue;
+            }
+            
+            // Get expected bus fee from student record
+            const expectedBusFee = student.optionalFees.schoolBus.amount || 0;
+            const route = student.optionalFees.schoolBus.route || 'N/A';
+            
+            // Get fee record for the term
+            const feeDoc = await window.db.collection('students').doc(studentId)
+                .collection('fees').doc(term).get();
+            
+            let busFeePaid = 0;
+            let feeRecordExists = false;
+            
+            if (feeDoc.exists) {
+                const feeRecord = feeDoc.data();
+                
+                // Check if fee record matches session (or no session specified for backward compatibility)
+                if (!feeRecord.session || feeRecord.session === session) {
+                    feeRecordExists = true;
+                    
+                    // If fee record has bus fee, use that; otherwise use student's bus fee
+                    const busFeeInRecord = feeRecord.optionalFees?.schoolBus?.amount || expectedBusFee;
+                    
+                    // Calculate proportional payment for bus fee
+                    if (feeRecord.totalFee > 0) {
+                        busFeePaid = (feeRecord.totalPaid / feeRecord.totalFee) * busFeeInRecord;
+                    }
+                }
+            }
+            
+            // Include all bus students, even if they don't have a fee record yet
+            totalExpected += expectedBusFee;
+            totalCollected += busFeePaid;
+            studentCount++;
+            
+            studentDetails.push({
+                name: student.name,
+                class: student.class,
+                route: route,
+                busFee: expectedBusFee,
+                paid: busFeePaid,
+                outstanding: expectedBusFee - busFeePaid,
+                feeRecordExists: feeRecordExists
+            });
+        }
+        
+        // If no students match the filters
+        if (studentCount === 0) {
+            const filterMsg = classId ? ` in ${classId}` : '';
+            container.innerHTML = `<p class="text-muted">No students are using the bus service${filterMsg}</p>`;
+            return;
+        }
+        
+        const outstanding = totalExpected - totalCollected;
+        const collectionRate = totalExpected > 0 ? ((totalCollected / totalExpected) * 100).toFixed(1) : 0;
+        
+        // Show filter indicator if class is selected
+        const filterIndicator = classId ? `<div class="alert alert-secondary mb-3"><i class="bi bi-filter"></i> Filtered by Class: <strong>${classId}</strong></div>` : '';
+        
+        // Display summary
+        let html = filterIndicator + `
+            <div class="row mb-4">
+                <div class="col-12 col-md-3 text-center">
+                    <h6 class="text-muted">Students Using Bus</h6>
+                    <h4>${studentCount}</h4>
+                </div>
+                <div class="col-12 col-md-3 text-center">
+                    <h6 class="text-muted">Expected Bus Fees</h6>
+                    <h4 class="text-info">₦${totalExpected.toLocaleString()}</h4>
+                </div>
+                <div class="col-12 col-md-3 text-center">
+                    <h6 class="text-muted">Collected</h6>
+                    <h4 class="text-success">₦${totalCollected.toLocaleString()}</h4>
+                </div>
+                <div class="col-12 col-md-3 text-center">
+                    <h6 class="text-muted">Outstanding</h6>
+                    <h4 class="text-danger">₦${outstanding.toLocaleString()}</h4>
+                </div>
+            </div>
+            <div class="alert alert-info">
+                <strong>Collection Rate:</strong> ${collectionRate}%
+            </div>
+            <h6 class="mt-4 mb-3">Student Details</h6>
+            <div style="overflow-x: auto;">
+                <table class="table table-striped">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Student Name</th>
+                            <th>Class</th>
+                            <th>Route</th>
+                            <th>Bus Fee</th>
+                            <th>Paid</th>
+                            <th>Outstanding</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        studentDetails.forEach(student => {
+            const statusBadge = student.feeRecordExists 
+                ? '<span class="badge bg-success">Fee Initialized</span>' 
+                : '<span class="badge bg-warning text-dark">No Fee Record</span>';
+            
+            html += `
+                <tr>
+                    <td>${student.name}</td>
+                    <td>${student.class}</td>
+                    <td>${student.route}</td>
+                    <td>₦${student.busFee.toLocaleString()}</td>
+                    <td class="text-success">₦${student.paid.toLocaleString()}</td>
+                    <td class="text-danger">₦${student.outstanding.toLocaleString()}</td>
+                    <td>${statusBadge}</td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        // Add note if some students don't have fee records
+        const studentsWithoutFees = studentDetails.filter(s => !s.feeRecordExists).length;
+        if (studentsWithoutFees > 0) {
+            html += `
+                <div class="alert alert-warning mt-3">
+                    <strong>Note:</strong> ${studentsWithoutFees} student(s) don't have fee records initialized for this term yet. 
+                    Go to <strong>Fee Structure</strong> tab and create/initialize fees for their class to include bus fees.
+                </div>
+            `;
+        }
+        
+        container.innerHTML = html;
+        
+    } catch (error) {
+        console.error('Error loading bus fee summary:', error);
+        document.getElementById('busFeeSummaryContainer').innerHTML = 
+            `<div class="alert alert-danger">Error: ${error.message}</div>`;
+    }
+}
+
 // Helper function to show messages
 function showMessage(element, message, type) {
     if (!element) return;
@@ -4343,6 +5065,18 @@ window.loadReprintStudents = loadReprintStudents;
 window.loadReprintPayments = loadReprintPayments;
 window.reprintReceipt = reprintReceipt;
 window.filterStudentSelect = filterStudentSelect;
+// Bus fee management functions
+window.toggleBusFeeSection = toggleBusFeeSection;
+window.updateBusFeeAmount = updateBusFeeAmount;
+window.toggleEditBusFeeSection = toggleEditBusFeeSection;
+window.updateEditBusFeeAmount = updateEditBusFeeAmount;
+window.loadBusStudents = loadBusStudents;
+window.loadStudentsForBusManagement = loadStudentsForBusManagement;
+window.loadStudentBusStatus = loadStudentBusStatus;
+window.toggleBusManageFields = toggleBusManageFields;
+window.updateBusManageFeeAmount = updateBusManageFeeAmount;
+window.handleManageBusService = handleManageBusService;
+window.loadBusFeeSummary = loadBusFeeSummary;
 
 // ============================================
 // DELETE TEACHER FUNCTIONALITY
