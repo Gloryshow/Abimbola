@@ -30,8 +30,8 @@ const generateRegistrationNumber = async () => {
 
 const registerStudent = async (studentData) => {
   try {
-    if (!studentData.name || !studentData.email || !studentData.class || !studentData.session) {
-      throw new Error('Name, email, class, and session are required');
+    if (!studentData.name || !studentData.class || !studentData.session) {
+      throw new Error('Name, class, and session are required');
     }
 
     // Auto-generate registration number if not provided
@@ -40,7 +40,7 @@ const registerStudent = async (studentData) => {
     // Create student document with auto-generated ID
     const studentDoc = {
       name: studentData.name,
-      email: studentData.email,
+      email: studentData.email || '',
       class: studentData.class,
       session: studentData.session,
       dateOfBirth: studentData.dateOfBirth || '',

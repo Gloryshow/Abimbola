@@ -106,7 +106,7 @@ const initializeStudentFeeRecord = async (studentId, classId, term, totalFee, se
       optionalFeesTotal += busFee;
       optionalFeesBreakdown.schoolBus = {
         amount: busFee,
-        route: studentData.optionalFees.schoolBus.route
+        timing: studentData.optionalFees.schoolBus.timing
       };
     }
     
@@ -500,7 +500,7 @@ const bulkInitializeStudentFees = async (classId, term, totalFee, session) => {
         optionalFeesTotal += busFee;
         optionalFeesBreakdown.schoolBus = {
           amount: busFee,
-          route: studentData.optionalFees.schoolBus.route
+          timing: studentData.optionalFees.schoolBus.timing
         };
       }
       

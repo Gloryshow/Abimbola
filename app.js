@@ -281,21 +281,21 @@ function toggleBusFeeSection() {
     } else {
         section.style.display = 'none';
         // Clear bus fee fields
-        document.getElementById('studentBusRoute').value = '';
+        document.getElementById('studentBusTiming').value = '';
         document.getElementById('studentBusFee').value = '';
         document.getElementById('studentBusStartDate').value = '';
     }
 }
 
 /**
- * Update bus fee amount when route is selected
+ * Update bus fee amount when timing is selected
  */
 function updateBusFeeAmount() {
-    const routeSelect = document.getElementById('studentBusRoute');
+    const timingSelect = document.getElementById('studentBusTiming');
     const feeInput = document.getElementById('studentBusFee');
     
-    if (routeSelect.value) {
-        const selectedOption = routeSelect.options[routeSelect.selectedIndex];
+    if (timingSelect.value) {
+        const selectedOption = timingSelect.options[timingSelect.selectedIndex];
         const amount = selectedOption.getAttribute('data-amount');
         feeInput.value = amount;
     } else {
@@ -315,20 +315,20 @@ function toggleEditBusFeeSection() {
     } else {
         section.style.display = 'none';
         // Clear bus fee fields
-        document.getElementById('editStudentBusRoute').value = '';
+        document.getElementById('editStudentBusTiming').value = '';
         document.getElementById('editStudentBusFee').value = '';
     }
 }
 
 /**
- * Update bus fee amount when route is selected in edit modal
+ * Update bus fee amount when timing is selected in edit modal
  */
 function updateEditBusFeeAmount() {
-    const routeSelect = document.getElementById('editStudentBusRoute');
+    const timingSelect = document.getElementById('editStudentBusTiming');
     const feeInput = document.getElementById('editStudentBusFee');
     
-    if (routeSelect.value) {
-        const selectedOption = routeSelect.options[routeSelect.selectedIndex];
+    if (timingSelect.value) {
+        const selectedOption = timingSelect.options[timingSelect.selectedIndex];
         const amount = selectedOption.getAttribute('data-amount');
         feeInput.value = amount;
     } else {
@@ -365,8 +365,8 @@ async function handleRegisterStudent(event) {
         const phone = document.getElementById('studentPhone').value.trim();
         const address = document.getElementById('studentAddress').value.trim();
 
-        if (!name || !email || !className || !session) {
-            showMessage('studentRegisterMessage', 'Name, email, class, and session are required', 'danger');
+        if (!name || !className || !session) {
+            showMessage('studentRegisterMessage', 'Name, class, and session are required', 'danger');
             submitButton.disabled = false;
             submitButton.innerHTML = originalButtonText;
             return;
@@ -377,12 +377,12 @@ async function handleRegisterStudent(event) {
         const optionalFees = {};
         
         if (usesBus) {
-            const route = document.getElementById('studentBusRoute').value;
+            const timing = document.getElementById('studentBusTiming').value;
             const amount = parseFloat(document.getElementById('studentBusFee').value);
             const startDate = document.getElementById('studentBusStartDate').value;
             
-            if (!route || !amount) {
-                showMessage('studentRegisterMessage', 'Please select bus route and confirm fee amount', 'danger');
+            if (!timing || !amount) {
+                showMessage('studentRegisterMessage', 'Please select bus timing and confirm fee amount', 'danger');
                 submitButton.disabled = false;
                 submitButton.innerHTML = originalButtonText;
                 return;
@@ -390,7 +390,7 @@ async function handleRegisterStudent(event) {
             
             optionalFees.schoolBus = {
                 enabled: true,
-                route: route,
+                timing: timing,
                 amount: amount,
                 startDate: startDate || new Date().toISOString().split('T')[0]
             };
@@ -560,7 +560,7 @@ function renderStudentsList(students, displayTitle) {
             ? `${students.length} student${students.length !== 1 ? 's' : ''} in ${currentUser.assignedClass}`
             : `${students.length} student${students.length !== 1 ? 's' : ''} found`;
         
-        let studentsHTML = `<div class="mb-3"><p class="text-muted"><strong>${countInfo}</strong></p></div><div class="table-responsive"><table class="table table-hover"><thead><tr><th>Name</th><th>Email</th><th>Class</th><th>Reg. Number</th>`;
+        let studentsHTML = `<div class="mb-3"><p class="text-muted"><strong>${countInfo}</strong></p></div><div class="table-responsive"><table class="table table-hover"><thead><tr><th>Name</th><th>Parent Phone</th><th>Class</th><th>Reg. Number</th>`;
         
         // Only show Actions column if user is admin
         if (currentUser && currentUser.role === 'admin') {
@@ -571,13 +571,13 @@ function renderStudentsList(students, displayTitle) {
         
         students.forEach(student => {
             const busIndicator = student.optionalFees?.schoolBus?.enabled 
-                ? `<span class="badge bg-info ms-1" title="Uses school bus: ${student.optionalFees.schoolBus.route}">🚌 Bus</span>` 
+                ? `<span class="badge bg-info ms-1" title="Uses school bus: ${student.optionalFees.schoolBus.timing}">🚌 Bus</span>` 
                 : '';
             
             studentsHTML += `
                 <tr>
                     <td><strong>${student.name}</strong>${busIndicator}</td>
-                    <td>${student.email}</td>
+                    <td>${student.parentPhone || '-'}</td>
                     <td><span class="badge bg-primary">${student.class}</span></td>
                     <td>${student.registrationNumber || '-'}</td>`;
             
@@ -654,11 +654,11 @@ function editStudent(studentId) {
     
     if (usesBus) {
         busFeeSection.style.display = 'block';
-        document.getElementById('editStudentBusRoute').value = student.optionalFees.schoolBus.route || '';
+        document.getElementById('editStudentBusTiming').value = student.optionalFees.schoolBus.timing || '';
         document.getElementById('editStudentBusFee').value = student.optionalFees.schoolBus.amount || '';
     } else {
         busFeeSection.style.display = 'none';
-        document.getElementById('editStudentBusRoute').value = '';
+        document.getElementById('editStudentBusTiming').value = '';
         document.getElementById('editStudentBusFee').value = '';
     }
     
@@ -681,16 +681,16 @@ async function handleSaveStudentChanges() {
         
         // Get bus fee information
         const usesBus = document.getElementById('editStudentUsesSchoolBus').checked;
-        const busRoute = document.getElementById('editStudentBusRoute').value;
+        const busTiming = document.getElementById('editStudentBusTiming').value;
         const busFee = parseFloat(document.getElementById('editStudentBusFee').value) || 0;
         
-        if (!name || !email || !className) {
-            document.getElementById('editStudentMessage').innerHTML = '<div class="alert alert-danger">Name, email, and class are required</div>';
+        if (!name || !className) {
+            document.getElementById('editStudentMessage').innerHTML = '<div class="alert alert-danger">Name and class are required</div>';
             return;
         }
         
-        if (usesBus && (!busRoute || !busFee)) {
-            document.getElementById('editStudentMessage').innerHTML = '<div class="alert alert-danger">Please select bus route and fee amount</div>';
+        if (usesBus && (!busTiming || !busFee)) {
+            document.getElementById('editStudentMessage').innerHTML = '<div class="alert alert-danger">Please select bus timing and fee amount</div>';
             return;
         }
         
@@ -706,7 +706,7 @@ async function handleSaveStudentChanges() {
         if (usesBus) {
             optionalFees.schoolBus = {
                 enabled: true,
-                route: busRoute,
+                timing: busTiming,
                 amount: busFee,
                 startDate: originalStudent?.optionalFees?.schoolBus?.startDate || new Date().toISOString().split('T')[0]
             };
@@ -759,7 +759,7 @@ async function handleSaveStudentChanges() {
                         newBalance += busFee;
                         optionalFeesUpdate.schoolBus = {
                             amount: busFee,
-                            route: busRoute
+                            timing: busTiming
                         };
                     }
                     
@@ -4219,7 +4219,7 @@ async function loadStudentFeeDetails() {
                                 <tr class="table-info">
                                     <td>
                                         <strong>🚌 School Bus Fee</strong>
-                                        <br><small class="text-muted">${feeRecord.optionalFees.schoolBus.route}</small>
+                                        <br><small class="text-muted">${feeRecord.optionalFees.schoolBus.timing}</small>
                                     </td>
                                     <td><strong>₦${feeRecord.optionalFees.schoolBus.amount.toLocaleString()}</strong></td>
                                 </tr>
@@ -4550,7 +4550,7 @@ async function loadBusStudents() {
                         <div>
                             <h6 class="mb-1">${student.name}</h6>
                             <p class="mb-1"><small class="text-muted">Class: ${student.class}</small></p>
-                            <p class="mb-0"><small><strong>Route:</strong> ${student.optionalFees.schoolBus.route}</small></p>
+                            <p class="mb-0"><small><strong>Timing:</strong> ${student.optionalFees.schoolBus.timing}</small></p>
                             <p class="mb-0"><small><strong>Fee:</strong> ₦${student.optionalFees.schoolBus.amount.toLocaleString()}/term</small></p>
                         </div>
                         <span class="badge bg-success">Active</span>
@@ -4619,7 +4619,7 @@ async function loadStudentBusStatus() {
         if (student.optionalFees?.schoolBus?.enabled) {
             statusText.innerHTML = `
                 <strong class="text-success">✓ Currently using bus service</strong><br>
-                <small>Route: ${student.optionalFees.schoolBus.route}</small><br>
+                <small>Timing: ${student.optionalFees.schoolBus.timing}</small><br>
                 <small>Fee: ₦${student.optionalFees.schoolBus.amount.toLocaleString()}/term</small>
             `;
         } else {
@@ -4634,7 +4634,7 @@ async function loadStudentBusStatus() {
 }
 
 /**
- * Toggle bus route selection fields based on action
+ * Toggle bus timing selection fields based on action
  */
 function toggleBusManageFields() {
     const action = document.getElementById('busManageAction').value;
@@ -4648,14 +4648,14 @@ function toggleBusManageFields() {
 }
 
 /**
- * Update bus fee amount when route is selected
+ * Update bus fee amount when timing is selected
  */
 function updateBusManageFeeAmount() {
-    const routeSelect = document.getElementById('busManageRoute');
+    const timingSelect = document.getElementById('busManageTiming');
     const feeInput = document.getElementById('busManageFee');
     
-    if (routeSelect.value) {
-        const selectedOption = routeSelect.options[routeSelect.selectedIndex];
+    if (timingSelect.value) {
+        const selectedOption = timingSelect.options[timingSelect.selectedIndex];
         const amount = selectedOption.getAttribute('data-amount');
         feeInput.value = amount;
     } else {
@@ -4681,12 +4681,12 @@ async function handleManageBusService(event) {
         showMessage('busManageMessage', 'Processing...', 'info');
         
         if (action === 'add') {
-            const route = document.getElementById('busManageRoute').value;
+            const timing = document.getElementById('busManageTiming').value;
             const amount = parseFloat(document.getElementById('busManageFee').value);
             const startDate = document.getElementById('busManageStartDate').value;
             
-            if (!route || !amount) {
-                showMessage('busManageMessage', 'Please select route and confirm fee amount', 'danger');
+            if (!timing || !amount) {
+                showMessage('busManageMessage', 'Please select timing and confirm fee amount', 'danger');
                 return;
             }
             
@@ -4694,7 +4694,7 @@ async function handleManageBusService(event) {
             await window.db.collection('students').doc(studentId).update({
                 'optionalFees.schoolBus': {
                     enabled: true,
-                    route: route,
+                    timing: timing,
                     amount: amount,
                     startDate: startDate || new Date().toISOString().split('T')[0]
                 }
@@ -4720,7 +4720,7 @@ async function handleManageBusService(event) {
                     batch.update(feeDoc.ref, {
                         'optionalFees.schoolBus': {
                             amount: amount,
-                            route: route
+                            timing: timing
                         },
                         totalFee: newTotalFee,
                         balance: newBalance,
@@ -4873,7 +4873,7 @@ async function loadBusFeeSummary() {
             
             // Get expected bus fee from student record
             const expectedBusFee = student.optionalFees.schoolBus.amount || 0;
-            const route = student.optionalFees.schoolBus.route || 'N/A';
+            const timing = student.optionalFees.schoolBus.timing || 'N/A';
             
             // Get fee record for the term
             const feeDoc = await window.db.collection('students').doc(studentId)
@@ -4907,7 +4907,7 @@ async function loadBusFeeSummary() {
             studentDetails.push({
                 name: student.name,
                 class: student.class,
-                route: route,
+                timing: timing,
                 busFee: expectedBusFee,
                 paid: busFeePaid,
                 outstanding: expectedBusFee - busFeePaid,
@@ -4958,7 +4958,7 @@ async function loadBusFeeSummary() {
                         <tr>
                             <th>Student Name</th>
                             <th>Class</th>
-                            <th>Route</th>
+                            <th>Timing</th>
                             <th>Bus Fee</th>
                             <th>Paid</th>
                             <th>Outstanding</th>
@@ -4977,7 +4977,7 @@ async function loadBusFeeSummary() {
                 <tr>
                     <td>${student.name}</td>
                     <td>${student.class}</td>
-                    <td>${student.route}</td>
+                    <td>${student.timing}</td>
                     <td>₦${student.busFee.toLocaleString()}</td>
                     <td class="text-success">₦${student.paid.toLocaleString()}</td>
                     <td class="text-danger">₦${student.outstanding.toLocaleString()}</td>

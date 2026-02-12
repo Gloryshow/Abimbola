@@ -336,8 +336,8 @@
                                             <input type="text" id="studentName" class="form-control" required>
                                         </div>
                                         <div class="col-12 col-md-6 mb-3">
-                                            <label class="form-label">Email Address *</label>
-                                            <input type="email" id="studentEmail" class="form-control" required>
+                                            <label class="form-label">Email Address</label>
+                                            <input type="text" id="studentEmail" class="form-control" placeholder="Optional">
                                         </div>
                                         <div class="col-12 col-md-6 mb-3">
                                             <label class="form-label">Class *</label>
@@ -411,15 +411,12 @@
                                         <div id="busFeeSection" style="display: none;" class="col-12">
                                             <div class="row">
                                                 <div class="col-12 col-md-4 mb-3">
-                                                    <label class="form-label">Bus Route *</label>
-                                                    <select id="studentBusRoute" class="form-control" onchange="updateBusFeeAmount()">
-                                                        <option value="">-- Select Route --</option>
-                                                        <option value="Akanran Route" data-amount="12000">Akanran Route - ₦12,000/term</option>
-                                                        <option value="Amuloko Route" data-amount="10000">Amuloko Route - ₦10,000/term</option>
-                                                        <option value="Olunloyo Route" data-amount="11000">Olunloyo Route - ₦11,000/term</option>
-                                                        <option value="Olorunsogo Route" data-amount="13000">Olorunsogo Route - ₦13,000/term</option>
-                                                        <option value="Bakatari Route" data-amount="14000">Bakatari Route - ₦14,000/term</option>
-                                                        <option value="Arulogun Route" data-amount="11500">Arulogun Route - ₦11,500/term</option>
+                                                    <label class="form-label">Bus Timing *</label>
+                                                    <select id="studentBusTiming" class="form-control" onchange="updateBusFeeAmount()">
+                                                        <option value="">-- Select Timing --</option>
+                                                        <option value="Morning Only" data-amount="10000">Morning Only - ₦10,000/term</option>
+                                                        <option value="Closing Only" data-amount="10000">Closing Only - ₦10,000/term</option>
+                                                        <option value="Both" data-amount="20000">Both (Morning & Closing) - ₦20,000/term</option>
                                                     </select>
                                                 </div>
                                                 <div class="col-12 col-md-4 mb-3">
@@ -649,8 +646,8 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label">Email Address *</label>
-                        <input type="email" id="editStudentFormEmail" class="form-control" required>
+                        <label class="form-label">Email Address</label>
+                        <input type="text" id="editStudentFormEmail" class="form-control" placeholder="Optional">
                     </div>
                     
                     <div class="mb-3">
@@ -723,15 +720,12 @@
                     <div id="editBusFeeSection" style="display: none;">
                         <div class="row">
                             <div class="col-12 col-md-6 mb-3">
-                                <label class="form-label">Bus Route *</label>
-                                <select id="editStudentBusRoute" class="form-control" onchange="updateEditBusFeeAmount()">
-                                    <option value="">-- Select Route --</option>
-                                    <option value="Akanran Route" data-amount="12000">Akanran Route - ₦12,000/term</option>
-                                    <option value="Amuloko Route" data-amount="10000">Amuloko Route - ₦10,000/term</option>
-                                    <option value="Olunloyo Route" data-amount="11000">Olunloyo Route - ₦11,000/term</option>
-                                    <option value="Olorunsogo Route" data-amount="13000">Olorunsogo Route - ₦13,000/term</option>
-                                    <option value="Bakatari Route" data-amount="14000">Bakatari Route - ₦14,000/term</option>
-                                    <option value="Arulogun Route" data-amount="11500">Arulogun Route - ₦11,500/term</option>
+                                <label class="form-label">Bus Timing *</label>
+                                <select id="editStudentBusTiming" class="form-control" onchange="updateEditBusFeeAmount()">
+                                    <option value="">-- Select Timing --</option>
+                                    <option value="Morning Only" data-amount="10000">Morning Only - ₦10,000/term</option>
+                                    <option value="Closing Only" data-amount="10000">Closing Only - ₦10,000/term</option>
+                                    <option value="Both" data-amount="20000">Both (Morning & Closing) - ₦20,000/term</option>
                                 </select>
                             </div>
                             <div class="col-12 col-md-6 mb-3">
@@ -1538,15 +1532,12 @@
 
                                                     <div id="busManageFields" style="display: none;">
                                                         <div class="mb-3">
-                                                            <label class="form-label">Bus Route *</label>
-                                                            <select id="busManageRoute" class="form-control" onchange="updateBusManageFeeAmount()">
-                                                                <option value="">-- Select Route --</option>
-                                                                <option value="Akanran Route" data-amount="12000">Akanran Route - ₦12,000/term</option>
-                                                                <option value="Amuloko Route" data-amount="10000">Amuloko Route - ₦10,000/term</option>
-                                                                <option value="Olunloyo Route" data-amount="11000">Olunloyo Route - ₦11,000/term</option>
-                                                                <option value="Olorunsogo Route" data-amount="13000">Olorunsogo Route - ₦13,000/term</option>
-                                                                <option value="Bakatari Route" data-amount="14000">Bakatari Route - ₦14,000/term</option>
-                                                                <option value="Arulogun Route" data-amount="11500">Arulogun Route - ₦11,500/term</option>
+                                                            <label class="form-label">Bus Timing *</label>
+                                                            <select id="busManageTiming" class="form-control" onchange="updateBusManageFeeAmount()">
+                                                                <option value="">-- Select Timing --</option>
+                                                                <option value="Morning Only" data-amount="10000">Morning Only - ₦10,000/term</option>
+                                                                <option value="Closing Only" data-amount="10000">Closing Only - ₦10,000/term</option>
+                                                                <option value="Both" data-amount="20000">Both (Morning & Closing) - ₦20,000/term</option>
                                                             </select>
                                                         </div>
                                                         <div class="mb-3">
